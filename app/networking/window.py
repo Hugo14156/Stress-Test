@@ -1,34 +1,50 @@
 from __future__ import annotations
 
-import queue
+import hashlib
+import threading
 
 import pygame
 
 WIDTH, HEIGHT = 640, 480
 BG_COLOR = (30, 30, 30)
-TEXT_COLOR = (220, 220, 220)
-FONT_SIZE = 20
-MAX_LINES = 18
+DOT_RADIUS = 10
+
+
+def _id_to_color(client_id: str) -> tuple[int, int, int]:
+    """Derive a consistent RGB color from a client ID string."""
+    digest = hashlib.md5(client_id.encode()).digest()
+    # Boost brightness so dots are visible on the dark background
+    return (max(digest[0], 80), max(digest[1], 80), max(digest[2], 80))
 
 
 class GameWindow:
-    """Simple pygame window that displays messages received over the network."""
+    """Pygame window that renders a colored dot for each remote player."""
 
-    def __init__(self, title: str = "Network Window") -> None:
+    def __init__(self, title: str = "Multiplayer") -> None:
         self._title = title
-        self._queue: queue.Queue[str] = queue.Queue()
-        self._lines: list[str] = []
+        self._lock = threading.Lock()
+        self._players: dict[str, tuple[int, int]] = {}
+        self._mouse_pos: tuple[int, int] = (0, 0)
 
-    def post_message(self, message: str) -> None:
-        """Thread-safe: enqueue a message to be displayed on the next frame."""
-        self._queue.put(message)
+    def update_player(self, client_id: str, x: int, y: int) -> None:
+        """Thread-safe: set or update a remote player's dot position."""
+        with self._lock:
+            self._players[client_id] = (x, y)
+
+    def remove_player(self, client_id: str) -> None:
+        """Thread-safe: remove a remote player's dot."""
+        with self._lock:
+            self._players.pop(client_id, None)
+
+    def get_mouse_pos(self) -> tuple[int, int]:
+        """Return the latest mouse position captured on the main thread."""
+        return self._mouse_pos
 
     def run(self) -> None:
-        """Run the pygame event loop on the calling thread. Blocks until closed."""
+        """Run the pygame event loop. Must be called from the main thread."""
         pygame.init()
         screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption(self._title)
-        font = pygame.font.SysFont("monospace", FONT_SIZE)
         clock = pygame.time.Clock()
 
         running = True
@@ -37,17 +53,16 @@ class GameWindow:
                 if event.type == pygame.QUIT:
                     running = False
 
-            # Drain the message queue
-            while not self._queue.empty():
-                msg = self._queue.get_nowait()
-                self._lines.append(msg)
-                if len(self._lines) > MAX_LINES:
-                    self._lines.pop(0)
+            self._mouse_pos = pygame.mouse.get_pos()
 
             screen.fill(BG_COLOR)
-            for i, line in enumerate(self._lines):
-                surface = font.render(line, True, TEXT_COLOR)
-                screen.blit(surface, (10, 10 + i * (FONT_SIZE + 4)))
+
+            with self._lock:
+                snapshot = dict(self._players)
+
+            for client_id, (x, y) in snapshot.items():
+                color = _id_to_color(client_id)
+                pygame.draw.circle(screen, color, (x, y), DOT_RADIUS)
 
             pygame.display.flip()
             clock.tick(30)

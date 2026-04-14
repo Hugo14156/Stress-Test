@@ -60,6 +60,7 @@ class WebSocketClient:
 
 
 if __name__ == "__main__":
+    import json
     import sys
     import threading
     from pathlib import Path
@@ -70,25 +71,31 @@ if __name__ == "__main__":
     server_ip = input("Enter server IP address: ").strip()
     uri = f"ws://{server_ip}:8765"
 
-    window = GameWindow(title="WebSocket Client")
+    window = GameWindow(title="Multiplayer")
+    own_id: str | None = None
 
     async def _networking() -> None:
+        global own_id
+
         def on_message(msg: str) -> None:
-            window.post_message(msg)
+            global own_id
+            data = json.loads(msg)
+            if data["type"] == "id":
+                own_id = data["id"]
+            elif data["type"] == "pos":
+                window.update_player(data["id"], data["x"], data["y"])
+            elif data["type"] == "leave":
+                window.remove_player(data["id"])
 
         client = WebSocketClient(uri, message_handler=on_message)
         await client.connect()
-        window.post_message("[connected to server]")
         await client.listen()
 
+        # Send cursor position at ~30 fps
         while True:
-            text = await asyncio.get_event_loop().run_in_executor(None, input, "> ")
-            if not text:
-                break
-            await client.send(text)
-
-        await client.disconnect()
-        window.post_message("[disconnected]")
+            x, y = window.get_mouse_pos()
+            await client.send(json.dumps({"type": "pos", "x": x, "y": y}))
+            await asyncio.sleep(1 / 30)
 
     def _run_networking() -> None:
         asyncio.run(_networking())
