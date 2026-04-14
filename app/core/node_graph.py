@@ -36,9 +36,6 @@ class Node:
 
         self._position = position
 
-    pos: tuple[float, float]
-    edges: list[Edge] = field(default_factory=list)
-
 
 class Edge:
     a: Node
