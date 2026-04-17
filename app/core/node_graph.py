@@ -1,29 +1,31 @@
 import heapq
 from typing import Optional
 
-class Node:
-    """
-    """
 
-    def __init__(self, position, node_type = None, edges = []):
+class Node:
+    """ """
+
+    def __init__(self, position, node_type=None, edges=[]):
         self.type = node_type
         self.position = position
         self.edges = edges
-    
+
     def add_edge(self, new_edge):
         if new_edge not in self.edges:
             self.edges.append(new_edge)
-    
 
 
-        self._position = position
 class Edge:
     def __init__(self, start_node, end_node):
         self.start = start_node
         self.end = end_node
-        self.length = ((self.end.position[0] - self.start.position[0]) ** 2 + (self.end.position[1] - self.start.position[1]) ** 2) ** 0.5
+        self.length = (
+            (self.end.position[0] - self.start.position[0]) ** 2
+            + (self.end.position[1] - self.start.position[1]) ** 2
+        ) ** 0.5
         self.start.add_edge(self)
         self.end.add_edge(self)
+
 
 class Graph:
     """
@@ -33,10 +35,12 @@ class Graph:
     starting node to the end node.
     """
 
-    def __init__(self, nodes = []):
+    def __init__(self, nodes=[]):
         self.nodes = nodes
 
-    def find_shortest_path(self, start: "Node", end: "Node") -> tuple[float, list["Node"]]:
+    def find_shortest_path(
+        self, start: "Node", end: "Node"
+    ) -> tuple[float, list["Node"]]:
         """
         Returns (total_cost, [node, node, ...]) from start to end.
         Raises ValueError if no path exists.
@@ -69,7 +73,6 @@ class Graph:
                     heapq.heappush(heap, (new_cost, neighbour))
 
         raise ValueError(f"No path exists between {start} and {end}")
-
 
     def _reconstruct_path(
         self,
