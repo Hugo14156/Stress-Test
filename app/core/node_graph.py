@@ -5,26 +5,6 @@ class Node:
     """
     """
 
-<<<<<<< HEAD
-    def __init__(self, position, edges, type=None):
-        if isinstance(position, [list, tuple]):
-            if all(isinstance(coordinates, [int, float]) for coordinates in position):
-                self._position = tuple(position)
-            else:
-                raise ValueError("All elements of position must be a integer or float.")
-        else:
-            raise ValueError("position but be a list or tuple.")
-
-        if isinstance(edges, [list, tuple]):
-            if all(isinstance(edge, [int, float]) for edge in edges):
-                self._position = tuple(position)
-            else:
-                raise ValueError("All elements of position must be a integer or float.")
-        else:
-            raise ValueError("position but be a list or tuple.")
-
-        self._position = position
-=======
     def __init__(self, position, node_type = None, edges = []):
         self.type = node_type
         self.position = position
@@ -34,9 +14,9 @@ class Node:
         if new_edge not in self.edges:
             self.edges.append(new_edge)
     
->>>>>>> main/NodeGraph
 
 
+        self._position = position
 class Edge:
     def __init__(self, start_node, end_node):
         self.start = start_node
@@ -102,4 +82,3 @@ class Graph:
             path.append(node)
             node = prev[node]
         return list(reversed(path))
-    
