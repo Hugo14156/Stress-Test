@@ -50,7 +50,7 @@ class Train:
         """
         if isinstance(depot, TrainDepot):
             self._id = depot.assign_train_id()
-            self._location = depot
+            self._location = depot.node()
         else:
             raise ValueError("depot must be an instance of the TrainDepot class.")
         if all(isinstance(car, Car) for car in cars):
