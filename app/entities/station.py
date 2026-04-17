@@ -1,6 +1,6 @@
 class Station:
     """
-    Brief summary of the class.
+    Parent class for Cities, Buisnesses, and Depots.
 
     A more detailed description of what the class does, its purpose,
     and any important implementation details.
@@ -15,3 +15,8 @@ class Station:
         >>> obj.method()
         'result'
     """
+
+    def __init__(self, node):
+        if isinstance(node, Node):
+            self._node = node
+        self._name = None

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Dependencies
 node_modules/
 __pycache__/
@@ -36,3 +37,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+=======
+.venv/
+>>>>>>> main/NodeGraph
