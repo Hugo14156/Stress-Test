@@ -32,11 +32,15 @@ while running:
             running = False
 
     keys = pygame.key.get_pressed()
-    camera.move(keys)
+    camera.move(keys, event)
 
     screen.fill("white")
 
     camera.draw(screen, objects)
+    if objects[0]["pos"][0] <= 1000:
+        objects[0]["pos"] = (objects[0]["pos"][0] + 1, 300)
+    else:
+        objects[0]["pos"] = (400, 300)
 
     pygame.display.flip()
     clock.tick(60)

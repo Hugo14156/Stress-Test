@@ -1,6 +1,10 @@
 """Stress test application using pygame for rendering and event handling."""
 
-import pygame
+from typing import Any
+
+import pygame as _pygame
+
+pygame: Any = _pygame
 
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
