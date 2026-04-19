@@ -1,5 +1,6 @@
 import pygame
 
+
 class Camera:
     """
     Camera render function to display game board.
@@ -21,13 +22,13 @@ class Camera:
 
     def move(self, keys):
         if keys[pygame.K_w]:
-            self.y += self.speed
-        if keys[pygame.K_s]:
             self.y -= self.speed
+        if keys[pygame.K_s]:
+            self.y += self.speed
         if keys[pygame.K_a]:
-            self.x += self.speed
-        if keys[pygame.K_d]:
             self.x -= self.speed
+        if keys[pygame.K_d]:
+            self.x += self.speed
 
         if keys[pygame.K_1]:
             self.zoom += self.zoom_speed
@@ -41,12 +42,7 @@ class Camera:
         half_w = (self.width // 2) / self.zoom
         half_h = (self.height // 2) / self.zoom
 
-        return (
-            self.x - half_w,
-            self.x + half_w,
-            self.y - half_h,
-            self.y + half_h
-        )
+        return (self.x - half_w, self.x + half_w, self.y - half_h, self.y + half_h)
 
     def is_visible(self, x, y, obj_surface):
         left, right, top, bottom = self.bounds
@@ -65,6 +61,14 @@ class Camera:
         screen_y = (y - top) * self.zoom
 
         return screen_x, screen_y
+
+    def screen_to_world(self, screen_x, screen_y):
+        left, _, top, _ = self.bounds
+
+        x = screen_x / self.zoom + left
+        y = screen_y / self.zoom + top
+
+        return (x, y)
 
     def draw(self, screen, objects):
         for obj in objects:
