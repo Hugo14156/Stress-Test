@@ -4,13 +4,9 @@ import os
 import tkinter as tk
 import pygame
 from app.player import Player
-from app.core.node_graph import Node, Edge, Graph
-from app.entities.train import Train
-from app.entities.train_depot import TrainDepot
-from app.avatars.trains.test_train import TestTrain
 
 
-class Game:
+class Client:
     """
     Game object which runs Stress Test either as a server, client, or server-client.
 
@@ -63,9 +59,6 @@ class Game:
         self._local_player = None
         self._run_type = None
         self._resolution = None
-        self.nodes = []
-        self.edges = []
-        self.trains = []
         if not self._load_config():
             self._set_default_configs()
 
@@ -110,13 +103,10 @@ class Game:
         local_player_name = str(os.getlogin())
         root = tk.Tk()
         root.withdraw()
-        self._resolution = (
-            root.winfo_screenwidth(),
-            root.winfo_screenheight(),
-        )
+        # self._resolution = (root.winfo_screenwidth(), root.winfo_screenheight())
+        self._resolution = (1280, 720)
         root.quit()
         self._local_player = Player(self, local_player_name)
-        self.test_depot = TrainDepot(self._local_player, (0, 0))
 
     def run_game(self):
         """
@@ -138,72 +128,18 @@ class Game:
         screen = pygame.display.set_mode(self._resolution)
         clock = pygame.time.Clock()
         running = True
-        blue = pygame.Surface((50, 50))
-        blue.fill("blue")
 
-        red = pygame.Surface((50, 50))
-        red.fill("red")
-
-        green = pygame.Surface((50, 50))
-        green.fill("green")
-
-        objects = [
-            {"pos": (400, 300), "surface": blue},
-            {"pos": (900, 500), "surface": red},
-            {"pos": (1600, 900), "surface": green},
-        ]
-        clicked_last_tick = False
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            keys = pygame.key.get_pressed()
-            mouse = pygame.mouse.get_pressed(num_buttons=3)
-            if mouse[0]:
-                if not clicked_last_tick:
-                    new_node_pos = pygame.mouse.get_pos()
-                    new_node_world_pos = self._local_player.camera.screen_to_world(
-                        new_node_pos[0], new_node_pos[1]
-                    )
-                    if len(self.nodes) == 0:
-                        self.place_new_node(new_node_world_pos)
-                    else:
-                        self.place_new_edge(self.nodes[-1], new_node_world_pos)
-                    clicked_last_tick = True
-            else:
-                clicked_last_tick = False
 
-            self._local_player.camera.move(keys)
-            screen.fill("grey")
-            render_stack = self.compile_render_stack()
-            self._local_player.camera.draw(screen, render_stack)
+            screen.fill("purple")
             pygame.display.flip()
+
             clock.tick(self._fps)
 
         pygame.quit()
-
-    def add_test_train(self, edge):
-        new_train = Train(self.test_depot, [], TestTrain, self._local_player)
-        new_train.bound = 1
-        new_train._location = self.edges[-1]
-
-    def place_new_node(self, position):
-        new_node = Node(position)
-        self.nodes.append(new_node)
-        return new_node
-
-    def place_new_edge(self, start_node, end_node_position):
-        end_node = self.place_new_node(end_node_position)
-        new_edge = Edge(start_node, end_node)
-        self.edges.append(new_edge)
-        return new_edge
-
-    def compile_render_stack(self):
-        stack = [
-            {"pos": node.render_position, "surface": node.surface}
-            for node in self.nodes
-        ] + [{"pos": edge.position, "surface": edge.surface} for edge in self.edges]
-        return stack
 
     @property
     def resolution(self):

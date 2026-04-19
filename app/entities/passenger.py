@@ -1,3 +1,8 @@
+from app.entities.city import City
+import names
+import random
+
+
 class Passenger:
     """
     A Passenger is a type of cargo carried by passegner cars. Passengers will be created at cities,
@@ -14,7 +19,7 @@ class Passenger:
         'result'
     """
 
-    def __init__(self, name, station):
+    def __init__(self, location, name=None, target_location=None):
         """
         Short description of the method.
 
@@ -34,6 +39,28 @@ class Passenger:
             >>> example_method(1, "test")
             True
         """
-        self.id = station.assign__id("Passenger")
-        self.location = station
-        self.destination = destination
+        if isinstance(location, City):
+            self._id = location.assign__id("Passenger")
+            self._location = location
+        else:
+            raise ValueError("location must be a City object")
+        if isinstance(name, str):
+            self._name = name
+        else:
+            self._name = names.get_full_name()
+        if isinstance(target_location, City):
+            self._target_location = target_location
+        else:
+            self._target_location = self._location.assign_target_location()
+
+    def check_valid_train(self, train):
+        return self._target_location in train.line().stations()
+
+    def check_valid_city(self, city):
+        return city == self._target_location
+
+    def board_train(self, train):
+        self._location = train
+
+    def pay(self):
+        self._location.player.add_money(4.28)
