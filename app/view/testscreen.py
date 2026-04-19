@@ -18,10 +18,14 @@ red.fill("red")
 green = pygame.Surface((50, 50))
 green.fill("green")
 
+hola = pygame.Surface((50, 50))
+hola.fill("purple")
+
 objects = [
     {"pos": (400, 300), "surface": blue},
     {"pos": (900, 500), "surface": red},
     {"pos": (1600, 900), "surface": green},
+    {"pos": (100, 900), "surface": hola},  
 ]
 
 running = True
