@@ -3,6 +3,8 @@ from app.entities.car import Car
 from app.avatars.avatar import Avatar
 from app.entities.station import Station
 from app.entities.line import Line
+from app.player import Player
+import pygame
 
 
 class Train:
@@ -28,7 +30,7 @@ class Train:
         >>> obj = Train(depot, [car1, car2, car2], model_2)
     """
 
-    def __init__(self, depot, cars, avatar):
+    def __init__(self, depot, cars, avatar, player):
         """
         Short description of the method.
 
@@ -65,6 +67,11 @@ class Train:
             raise ValueError(
                 "avatar must be an Avatar object or a child object of the Avatar class."
             )
+
+        if isinstance(player, Player):
+            self._player = player
+        else:
+            raise ValueError("player must be Player object.")
         self._bound = 1
         self._line = None
         self._position = None
@@ -86,33 +93,37 @@ class Train:
                 return new_cargo
         return new_cargo
 
-    def _calculate_speed(self, accelerate: bool):
+    def _calculate_speed(self, accelerate: bool, dt):
         if accelerate and self._speed < self._max_speed:
-            self._speed += self._acceleration * dt  # TODO Intergrate dt
+            self._speed += self._acceleration * dt
         elif self._speed > 0:
-            self._speed -= self._deceleration * dt  # TODO Intergrate dt
+            self._speed -= self._deceleration * dt
 
-    def _move_along_segment(self):
-        self._t += (
-            self._bound * self._speed * dt / self._location.length
-        )  # TODO Intergrate dt
+    def _move_along_segment(self, dt):
+        self._t += self._bound * self._speed * dt / self._location.length
 
         if self._t >= 1.0:
-            self._arrive_at(self._location.node_b)
+            self._arrive_at(self._location.end)
         elif self._t <= 0.0:
-            self._arrive_at(self._location.node_a)
+            self._arrive_at(self._location.start)
 
-    def _arrive_at(self, hit_node):
+    def _arrive_at(self, node):
         self._location.remove_train(self)
-        new_location, new_bound = self.line.next_edge(self._location, hit_node)
-        self._location = new_location
-        self._bound = new_bound
-        self._location.add_train(self)
+        if node in self.line.stations:
+            self._arrive_at_station(node)
+        else:
+            new_segment, new_bound = self.line.next_edge(node, self._bound)
+            self._location = new_segment
+            self._bound = new_bound
+            self._location.add_train(self)
 
     def _calculate_movement_statistics(self):
         self._max_speed = self._avatar.get_max_speed(self._cars)
         self._acceleration = self._avatar.get_acceleration(self._cars)
         self._deceleration = self._avatar.get_deceleration(self._cars)
+
+    def _arrive_at_station(self, node):
+        pass
 
     @property
     def id(self):

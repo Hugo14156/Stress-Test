@@ -1,5 +1,10 @@
 from app.game import Game
 
-if __name__ == "__main__":
+
+def test_line():
     game = Game()
     game.run_game()
+
+
+if __name__ == "__main__":
+    test_line()

@@ -1,5 +1,7 @@
 import heapq
+import pygame
 from typing import Optional
+import math
 
 
 class Node:
@@ -8,7 +10,10 @@ class Node:
     def __init__(self, position, node_type=None, edges=[]):
         self.type = node_type
         self.position = position
+        self.render_position = (position[0] - 5, position[1] - 5)
         self.edges = edges
+        self.surface = pygame.Surface((5 * 2, 5 * 2), pygame.SRCALPHA)
+        pygame.draw.circle(self.surface, (255, 0, 0), (5, 5), 5)
 
     def add_edge(self, new_edge):
         if new_edge not in self.edges:
@@ -19,12 +24,74 @@ class Edge:
     def __init__(self, start_node, end_node):
         self.start = start_node
         self.end = end_node
-        self.length = (
-            (self.end.position[0] - self.start.position[0]) ** 2
-            + (self.end.position[1] - self.start.position[1]) ** 2
-        ) ** 0.5
+        self.trains = []
+        self._x_diff = self.end.position[0] - self.start.position[0]
+        self._y_diff = self.end.position[1] - self.start.position[1]
+        self.length = (self._x_diff**2 + self._y_diff**2) ** 0.5
         self.start.add_edge(self)
         self.end.add_edge(self)
+        self.surface = pygame.Surface(
+            (abs(self._x_diff), abs(self._y_diff)), pygame.SRCALPHA
+        )
+        if self._x_diff >= 0:
+            if self._y_diff >= 0:
+                self.position = (start_node.position[0], start_node.position[1])
+                pygame.draw.line(
+                    self.surface,
+                    (255, 0, 0),
+                    (0, 0),
+                    (self._x_diff, self._y_diff),
+                    width=10,
+                )
+            else:
+                self.position = (start_node.position[0], end_node.position[1])
+                pygame.draw.line(
+                    self.surface,
+                    (255, 0, 0),
+                    (0, -self._y_diff),
+                    (self._x_diff, 0),
+                    width=10,
+                )
+        else:
+            if self._y_diff >= 0:
+                self.position = (end_node.position[0], start_node.position[1])
+                pygame.draw.line(
+                    self.surface,
+                    (255, 0, 0),
+                    (0, self._y_diff),
+                    (-self._x_diff, 0),
+                    width=10,
+                )
+            else:
+                self.position = (end_node.position[0], end_node.position[1])
+                pygame.draw.line(
+                    self.surface,
+                    (255, 0, 0),
+                    (0, 0),
+                    (-self._x_diff, -self._y_diff),
+                    width=10,
+                )
+
+    def give_position(self, portion_traveled):
+        if isinstance(portion_traveled, [int, float]):
+            if portion_traveled < 0:
+                portion_traveled = 0
+            elif portion_traveled > 1:
+                portion_traveled = 1
+            return (
+                self.start.position[0] + (self._x_diff * portion_traveled),
+                self.start.position[1] + (self._y_diff * portion_traveled),
+            )
+        else:
+            raise ValueError("portion_traveled must be an integer or float")
+
+    def add_train(self, new_train):
+        if new_train not in self.trains:
+            self.trains.append(new_train)
+
+    def remove_train(self, target_train):
+        if target_train in self.trains:
+            self.trains.remove(target_train)
 
 
 class Graph:
