@@ -1,3 +1,6 @@
+import app.entities.passenger
+
+
 class Car:
     """
     Brief summary of the class.
@@ -69,16 +72,16 @@ class Car:
                 "passengers is not a list. Please input passengers as a list of passenger types."
             )
         for index, passenger in enumerate(passengers):
-            if isinstance(passenger, Passenger):
+            if isinstance(passenger, app.entities.passenger.Passenger):
                 raise ValueError(
                     f"index {index} of passengers is not a passenger. Please input passengers as a list of passenger types."
                 )
             if len(self.passengers) < self.data_sheet["Passenger Capacity"]:
                 self.passengers.append(passenger)
-                passenger.embark(self)
+                passenger.board_train(self)
             else:
-                return passengers[:index]
-        return passengers
+                return passengers[index:]
+        return []
 
     def unload(self):
         """
@@ -116,4 +119,3 @@ class Car:
             >>> example_method(1, "test")
             True
         """
-        pass
