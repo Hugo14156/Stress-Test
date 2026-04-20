@@ -1,6 +1,10 @@
+from app.entities.train import Train
+
+
+
 class TrainDepot:
     """
-    Brief summary of the class.
+    A train depot allows for the purchase and maintenece of trains. 
 
     A more detailed description of what the class does, its purpose,
     and any important implementation details.
@@ -76,3 +80,10 @@ class TrainDepot:
             new_id = f"{self.ids[kind][0]}_{self._player}-{int(self.ids[kind][1][-1].split("-")[-1]) + 1}"
         self.ids[kind][1].append(new_id)
         return new_id
+    
+    def create_train(self, cars, avatar):
+        new_train = Train(self, cars, avatar)
+        self.add_train(new_train)
+    
+    def add_train(self, new_train):
+        
