@@ -3,21 +3,78 @@ from typing import Optional
 
 class Node:
     """
+    A class used to location information for stations, depots, waypoints, and cities for
+    graph representation and wayfinding.
+
+    Attributes:
+        type: a string representing the type of the node (station, depot, etc.)
+        position: a tuple containing two double entries representing the cartesian coordinates of the node
+        edges: a list containing the edges attatched to the node
     """
 
     def __init__(self, position, node_type = None, edges = []):
+        """
+        Initializes the node and node information
+
+        Args:
+            position: a tuple containing two double entries representing the cartesian coordinates of the node
+            node_type: a string (or None if not specified) representing the type of the node (station, depot, etc.)
+            edges: a list containing the edges attatched to the node
+        
+        Returns: nothing
+        """
         self.type = node_type
         self.position = position
         self.edges = edges
     
     def add_edge(self, new_edge):
+        """
+        Adds an edge to a node
+
+        Args:
+            new_edge: an edge that is to be added the list of edges of the node
+        
+        Returns: nothing
+        """
         if new_edge not in self.edges:
             self.edges.append(new_edge)
     
+    #def __repr__(self):
+        #"""
+        #Define the representation of the node instance as its position
+
+        #Args:
+        #    none
+        
+        #Returns:
+        #    A string containing the coordinates of the node
+        #"""
+
+        #return f"{self.position}"
+
+        # unwanted functionality. commented out if future use is needed
 
 
 class Edge:
+    """
+    A class used for edges that represent "links" between two nodes that trains can travel between. Used in
+    wayfinding between two nodes.
+
+    Attributes:
+        start: a node representing the node at the start of the edge
+        end: a node representing the node at the end of the edge
+        length: a double representing the distance between `start` and `end`
+    """
     def __init__(self, start_node, end_node):
+        """
+        Initalizes the edge type and automatically edges the new edge its respective nodes
+
+        Args:
+            start_node: the node at the start of the edge
+            end_node: the node at the end of the edge
+        
+        Returns: nothing
+        """
         self.start = start_node
         self.end = end_node
         self.length = ((self.end.position[0] - self.start.position[0]) ** 2 + (self.end.position[1] - self.start.position[1]) ** 2) ** 0.5
@@ -30,15 +87,48 @@ class Graph:
 
     Given starting node and an end node, return a list of nodes and edges that get you from the
     starting node to the end node.
+
+    Class used for wayfinding calculations between two nodes
+
+    Attributes:
+        nodes: a list of nodes
     """
 
     def __init__(self, nodes = []):
+        """
+        Initializes the graph class
+
+        Args:
+            nodes: a list of nodes
+        
+        Returns: nothing
+        """
         self.nodes = nodes
+
+        # in the current implementation, this doesn't really do anything.
+        # if it isn't broken, don't fix it (yet)
 
     def find_shortest_path(self, start: "Node", end: "Node") -> tuple[float, list["Node"]]:
         """
-        Returns (total_cost, [node, node, ...]) from start to end.
-        Raises ValueError if no path exists.
+        Find the shortest path between two nodes using their edges using Dijkstra's algorithm
+
+        Explores the graph outward from `start`, always expanding the
+        cheapest-known frontier node first, and terminates as soon as `end` is
+        popped from the heap — guaranteeing the returned path is optimal.
+        Edge weights are taken from each edge's `length` attribute, and edges are
+        treated as undirected (traversable in either direction).
+
+        Args:
+            start: a node representing the origin node (the starting node)
+            end: a node representing the destination node (the ending node)
+
+        Returns: 
+            a tuple formatted as follows: (distance, path), where
+                distance: the total distance of the path
+                path: [`start`, node, node, ..., `end`] represents the nodes along the path from `start` to `end`
+        
+        Raises: 
+            ValueError if no path exists.
         """
         # dist maps node -> best known cost to reach it
         dist: dict["Node", float] = {start: 0.0}
@@ -70,11 +160,23 @@ class Graph:
         raise ValueError(f"No path exists between {start} and {end}")
 
 
-    def _reconstruct_path(
-        self,
-        prev: dict["Node", Optional["Node"]],
-        end: "Node",
-    ) -> list["Node"]:
+    def _reconstruct_path(self, prev: dict["Node", Optional["Node"]], end: "Node",) -> list["Node"]:
+        """
+        Reconstructs the shortest path from start to end using a predecessor map.
+
+        Traces back through the `prev` dictionary from `end` to the start node
+        (identified by its None predecessor), then reverses the result to return
+        the path in start-to-end order.
+
+        Args:
+            prev: A mapping from each visited node to the node it was reached from.
+                The start node maps to None, marking the beginning of the chain.
+            end:  The destination node to trace back from.
+
+        Returns:
+            An ordered list of nodes representing the shortest path from start to
+            end, inclusive of both endpoints.
+        """
         path = []
         node: Optional["Node"] = end
         while node is not None:
