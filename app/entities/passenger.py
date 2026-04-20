@@ -1,9 +1,7 @@
 class Passenger:
     """
-    Brief summary of the class.
-
-    A more detailed description of what the class does, its purpose,
-    and any important implementation details.
+    A Passenger is a type of cargo carried by passegner cars. Passengers will be created at cities,
+    and will have a target city in mind that is a memebr of a line which services their home city.
 
     :param param1: Description of the first parameter.
     :type param1: str
@@ -16,7 +14,7 @@ class Passenger:
         'result'
     """
 
-    def __init__(self, destination, station):
+    def __init__(self, name, station):
         """
         Short description of the method.
 
