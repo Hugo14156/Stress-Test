@@ -3,10 +3,17 @@ import pygame
 
 class Screens:
     """
-    Handles menu / UI screens such as home screen, end screen, etc.
+    A class to manage different game screens such as the home screen, pause screen, and quit confirmation screen.
     """
 
     def __init__(self, width, height):
+        """
+        Initializes the Screens class with the given width and height for the game window.
+        
+        Args:
+            width (int): The width of the game window in pixels.
+            height (int): The height of the game window in pixels.
+        """
         self.width = width
         self.height = height
 
@@ -18,6 +25,16 @@ class Screens:
         
 
     def homescreen(self, screen, events):
+        """
+        Displays the home screen and handles user interactions.
+        
+        Args:
+            screen (pygame.Surface): The surface to draw the home screen on.
+            events (list): A list of pygame events to handle user interactions.
+            
+        Returns:
+            str: "start" if the user clicks the start button, None otherwise.
+        """
 
         screen.fill((55, 101, 179))
         pygame.draw.rect(screen,(20, 40, 180),screen.get_rect(),15)
@@ -48,7 +65,16 @@ class Screens:
         return None
     
     def top_toolbar(self, screen, events):
-
+        """
+        Displays the top toolbar during the game and handles user interactions for pausing and quitting.
+        
+        Args:
+            screen (pygame.Surface): The surface to draw the toolbar on.
+            events (list): A list of pygame events to handle user interactions.
+            
+        Returns:
+            str: "pause" if the user clicks the pause button, "quit" if the user clicks the quit button, None otherwise.
+        """
         mouse_pos = pygame.mouse.get_pos()
 
         pause_button = pygame.Rect(self.width//2 - 80, 20, 70, 70)
@@ -87,6 +113,16 @@ class Screens:
         return None
     
     def pause_screen(self, screen, events):
+        """
+        Displays the pause screen and handles user interactions for resuming the game.
+        
+        Args:
+            screen (pygame.Surface): The surface to draw the pause screen on.
+            events (list): A list of pygame events to handle user interactions.
+            
+        Returns:
+            str: "resume" if the user clicks the resume button, None otherwise.
+        """
         screen.fill((55, 101, 179))
         pygame.draw.rect(screen,(20, 40, 180),screen.get_rect(),15)
         
@@ -117,6 +153,16 @@ class Screens:
         return None
 
     def quit_screen(self, screen, events):
+        """
+        Displays the quit confirmation screen and handles user interactions for confirming or canceling quitting the game.
+       
+        Args:
+            screen (pygame.Surface): The surface to draw the quit confirmation screen on.
+            events (list): A list of pygame events to handle user interactions.
+        
+        Returns:
+            str: "yes" if the user clicks the yes button, "no" if the user clicks the no button, None otherwise.
+        """
         screen.fill((55, 101, 179))
         pygame.draw.rect(screen,(20, 40, 180),screen.get_rect(),15)
 
