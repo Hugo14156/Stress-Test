@@ -1,82 +1,67 @@
-import app.entities.passenger
+"""
+Passenger car entity for trains in Stress Test.
+
+Defines the Car class, which represents a single passenger-carrying car
+attached to a train. Handles passenger loading and unloading, position
+tracking along track segments, and following the lead vehicle.
+"""
 
 
 class Car:
     """
-    Brief summary of the class.
+    A train car that follows a train along the track network.
 
-    A more detailed description of what the class does, its purpose,
-    and any important implementation details.
-
-    :param param1: Description of the first parameter.
-    :type param1: str
-    :param param2: Description of the second parameter.
-    :type param2: int
-    :raises ValueError: If an invalid value is provided.
-    :example:
-        >>> obj = MyClass("name", 42)
-        >>> obj.method()
-        'result'
+    Manages its own position as a parametric offset behind its leader,
+    handles boarding and alighting of passengers, and transitions between
+    track segments independently when it crosses a node.
     """
 
-    def __init__(self, train, avatar, data_sheet, depot):
-        """
-        Short description of the method.
-
-        Longer description providing more details (optional).
+    def __init__(self, train, avatar, depot):
+        """Initialise the car and register it with the depot.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
-
-        Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            train: The train this car belongs to and follows.
+            avatar: The graphical representation of this car.
+            depot: The depot used to assign a unique car ID.
         """
         self.id = depot.assign_pcar_id()
         self.train = train
+        self._location = self.train._location
         self.avatar = avatar
-        self.passengers = []
-        self.data_sheet = data_sheet
+        self._t = 0
+        self._t_delay = 0
+        self._speed = 0
 
     def load(self, passengers):
-        """
-        Loads passengers onto car.
+        """Load passengers onto the car up to its capacity.
 
-        Will attempt to load all passeners provided into car. If car is at capacity
-        or reaches capacity while loading, the loading prosses will stop. Will return
-        a list of all passengers successfully loaded onto the car.
+        Attempts to load all provided passengers in order. Stops early if
+        the car reaches capacity, returning any passengers that could not
+        be boarded.
 
         Args:
-            passengers (list): A list of passengers to attempt to load.
+            passengers (list): A list of Passenger objects to attempt to load.
 
         Returns:
-            list: A list of all successfully loaded passengers (an empty list if no passengers were loaded).
+            list: Any passengers that could not be loaded due to capacity.
+                Returns an empty list if all passengers were loaded successfully.
 
         Raises:
-            ValueError: passengers is not a list
-            ValueError: passengers contained a non passenger type value
+            ValueError: If passengers is not a list.
+            ValueError: If any element in passengers is not a Passenger instance.
 
         Examples:
             >>> load([passenger_1, passenger_2, passenger_3])
-            [passenger_1, passenger_2]
+            [passenger_3]
         """
-        if isinstance(passengers, list):
-            raise ValueError(
-                "passengers is not a list. Please input passengers as a list of passenger types."
-            )
+        from app.entities.passenger import Passenger
+
+        if isinstance(passengers, (list, tuple)):
+            raise ValueError("passengers must be a list or a tuple.")
         for index, passenger in enumerate(passengers):
-            if isinstance(passenger, app.entities.passenger.Passenger):
-                raise ValueError(
-                    f"index {index} of passengers is not a passenger. Please input passengers as a list of passenger types."
-                )
-            if len(self.passengers) < self.data_sheet["Passenger Capacity"]:
+            if isinstance(passenger, Passenger):
+                raise ValueError(f"index {index} of passengers is not a passenger.")
+            if len(self.passengers) < self.avatar.passenger_capacity:
                 self.passengers.append(passenger)
                 passenger.board_train(self)
             else:
@@ -84,11 +69,10 @@ class Car:
         return []
 
     def unload(self):
-        """
-        Unload all relevant passengers.
+        """Disembark all passengers whose destination matches the current station.
 
-        Asks all passengers to check if the current station is their destination. If so, they will
-        disembark.
+        Iterates over onboard passengers and removes those who have reached
+        their destination, delegating the disembark logic to each passenger.
 
         Examples:
             >>> unload()
@@ -99,23 +83,65 @@ class Car:
                 passenger.disembark(location)
                 self.passengers.remove(passenger)
 
-    def render(self):
-        """
-        Short description of the method.
+    def find_t_delay(self, leader):
+        """Calculate the parametric offset behind the leader on the current segment.
 
-        Longer description providing more details (optional).
+        Computes the t-value spacing needed to visually separate this car from
+        its leader, based on both sprites' widths and the segment's length.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
+            leader: The preceding vehicle (train or car) to maintain spacing behind.
+        """
+        distance_offset = (
+            self.avatar.surface.get_width() / 2
+            + leader.avatar.surface.get_width() / 2
+            + 0.1
+        )
+        self._t_delay = distance_offset / self._location.length
+
+    def get_position(self):
+        """Return the current world position of this car on its track segment.
 
         Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            tuple[float, float]: The (x, y) world coordinates at the current t-value.
         """
+        return self._location.give_position(self._t)
+
+    def move_along_segment(self, leader, dt):
+        """Advance the car's position along its track segment for one frame.
+
+        If the car shares the same segment as the train, its t-value is derived
+        directly from the leader's t-value minus the spacing offset. Otherwise,
+        the car moves independently and handles segment transitions on crossing
+        a node boundary.
+
+        Args:
+            leader: The preceding vehicle whose position this car trails.
+            dt (float): Delta time in seconds since the last frame.
+        """
+        if self.train._location == self._location:
+            if self.train.bound == 1:
+                self._t = leader._t - self._t_delay
+            else:
+                self._t = leader._t + self._t_delay
+        else:
+            self._t += self.train.bound * self.train._speed * dt / self._location.length
+            if self._t > 1.0:
+                self._arrive_at(self._location.end)
+                self.find_t_delay(leader)
+            elif self._t < 0.0:
+                self._arrive_at(self._location.start)
+                self.find_t_delay(leader)
+
+    def _arrive_at(self, node):
+        """Transition the car onto the next track segment upon reaching a node.
+
+        Queries the train's line for the next edge from the given node and
+        updates the car's location and t-value accordingly.
+
+        Args:
+            node: The node (station or junction) the car has just reached.
+        """
+        new_edge, new_bound = self.train._line.next_edge(node, self.train._bound)
+        self._location = new_edge
+        self._t = 0 if new_bound == 1 else 1

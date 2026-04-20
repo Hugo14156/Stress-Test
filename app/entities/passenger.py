@@ -1,44 +1,40 @@
-from app.entities.city import City
+"""
+Passenger entity for Stress Test.
+
+Defines the Passenger class, which represents a traveller generated at a
+city with a target destination. Passengers wait at their origin city,
+board valid trains, and pay a fare upon reaching their destination.
+"""
+
 import names
-import random
 
 
 class Passenger:
-    """
-    A Passenger is a type of cargo carried by passegner cars. Passengers will be created at cities,
-    and will have a target city in mind that is a memebr of a line which services their home city.
+    """A traveller generated at a city with a target destination city.
 
-    :param param1: Description of the first parameter.
-    :type param1: str
-    :param param2: Description of the second parameter.
-    :type param2: int
-    :raises ValueError: If an invalid value is provided.
-    :example:
-        >>> obj = MyClass("name", 42)
-        >>> obj.method()
-        'result'
+    Passengers are spawned by cities and assigned a destination reachable
+    via a line servicing their home city. They board trains whose routes
+    include their destination and disembark upon arrival.
     """
 
     def __init__(self, location, name=None, target_location=None):
-        """
-        Short description of the method.
+        """Initialise the passenger at a city with a name and target destination.
 
-        Longer description providing more details (optional).
+        If no name is provided, one is generated randomly. If no target location
+        is provided, one is assigned by the origin city.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
-
-        Returns:
-            bool: Description of the return value.
+            location (City): The city where this passenger is created and waits.
+            name (str | None): The passenger's name. If None, a random name
+                is generated.
+            target_location (City | None): The passenger's destination city.
+                If None, the origin city assigns one.
 
         Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            ValueError: If location is not a City instance.
         """
+        from app.entities.city import City
+
         if isinstance(location, City):
             self._id = location.assign__id("Passenger")
             self._location = location
@@ -54,13 +50,35 @@ class Passenger:
             self._target_location = self._location.assign_target_location()
 
     def check_valid_train(self, train):
+        """Check whether this passenger's destination is served by the given train.
+
+        Args:
+            train: The train to check against.
+
+        Returns:
+            bool: True if the train's line includes the passenger's destination.
+        """
         return self._target_location in train.line().stations()
 
     def check_valid_city(self, city):
+        """Check whether the given city is this passenger's destination.
+
+        Args:
+            city (City): The city to check against.
+
+        Returns:
+            bool: True if the city matches the passenger's target location.
+        """
         return city == self._target_location
 
     def board_train(self, train):
+        """Update the passenger's location to reflect boarding a train.
+
+        Args:
+            train: The train or car the passenger is boarding.
+        """
         self._location = train
 
     def pay(self):
+        """Issue a fare payment to the player upon reaching the destination."""
         self._location.player.add_money(4.28)

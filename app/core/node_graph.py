@@ -5,13 +5,12 @@ import math
 
 
 class Node:
-    """ """
 
-    def __init__(self, position, node_type=None, edges=[]):
+    def __init__(self, position, node_type=None):
         self.type = node_type
         self.position = position
         self.render_position = (position[0] - 5, position[1] - 5)
-        self.edges = edges
+        self.edges = []
         self.surface = pygame.Surface((5 * 2, 5 * 2), pygame.SRCALPHA)
         pygame.draw.circle(self.surface, (255, 0, 0), (5, 5), 5)
 
@@ -21,6 +20,7 @@ class Node:
 
 
 class Edge:
+
     def __init__(self, start_node, end_node):
         self.start = start_node
         self.end = end_node
@@ -28,8 +28,9 @@ class Edge:
         self._x_diff = self.end.position[0] - self.start.position[0]
         self._y_diff = self.end.position[1] - self.start.position[1]
         self.length = (self._x_diff**2 + self._y_diff**2) ** 0.5
-        self.start.add_edge(self)
-        self.end.add_edge(self)
+        start_node.add_edge(self)
+        end_node.add_edge(self)
+        self.angle = self.angle_between_points()
         self.surface = pygame.Surface(
             (abs(self._x_diff), abs(self._y_diff)), pygame.SRCALPHA
         )
@@ -72,8 +73,34 @@ class Edge:
                     width=10,
                 )
 
+    def angle_between_points(self):
+        """
+        Calculate the angle in degrees between two points relative to the origin (0,0).
+        The angle is measured from p1 to p2 in counterclockwise direction.
+
+        Parameters:
+            p1 (tuple): First point (x1, y1)
+            p2 (tuple): Second point (x2, y2)
+
+        Returns:
+            float: Angle in degrees (0 to 360)
+        """
+        # Vector from origin to p1 and p2
+        x1, y1 = self.start.position
+        x2, y2 = self.end.position
+
+        # Calculate angles from origin
+        dx = x2 - x1
+        dy = y2 - y1
+
+        # Difference in radians
+        angle_rad = math.atan2(dy, dx)
+
+        # Convert to degrees
+        return -math.degrees(angle_rad) % 360
+
     def give_position(self, portion_traveled):
-        if isinstance(portion_traveled, [int, float]):
+        if isinstance(portion_traveled, (int, float)):
             if portion_traveled < 0:
                 portion_traveled = 0
             elif portion_traveled > 1:

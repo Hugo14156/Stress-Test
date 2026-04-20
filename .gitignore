@@ -12,6 +12,7 @@ build/
 *.a
 *.so
 *.dylib
+*.pyc
 
 # IDE and editor
 .vscode/

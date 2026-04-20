@@ -1,23 +1,18 @@
-from app.entities.train import Train
+"""
+Train depot entity for Stress Test.
 
+Defines the TrainDepot class, which acts as a hub for purchasing and
+maintaining trains. Also manages unique ID assignment for all tracked
+entity types associated with a player.
+"""
 
 
 class TrainDepot:
-    """
-    A train depot allows for the purchase and maintenece of trains. 
+    """A depot that manages train ownership and entity ID tracking for a player.
 
-    A more detailed description of what the class does, its purpose,
-    and any important implementation details.
-
-    :param param1: Description of the first parameter.
-    :type param1: str
-    :param param2: Description of the second parameter.
-    :type param2: int
-    :raises ValueError: If an invalid value is provided.
-    :example:
-        >>> obj = MyClass("name", 42)
-        >>> obj.method()
-        'result'
+    Serves as the registration point for all trains and related entities
+    belonging to a player. Maintains ID sequences for each entity type
+    to ensure unique identification across the game session.
     """
 
     ids = {
@@ -30,49 +25,33 @@ class TrainDepot:
         "Train": ["t", []],
     }
 
-    def __init__(self, player, position):
-        """
-        Short description of the method.
-
-        Longer description providing more details (optional).
+    def __init__(self, player, position, node):
+        """Initialise the depot with a owning player and a world position.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
-
-        Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            player: The player who owns this depot.
+            position (tuple[float, float]): The (x, y) world coordinates of
+                this depot.
+            node (Node): The node of the depot.
         """
         self._position = position
         self._player = player
         self._trains = []
+        self._node = node
 
     def assign__id(self, kind):
-        """
-        Short description of the method.
+        """Generate and register a new unique ID for an entity of the given type.
 
-        Longer description providing more details (optional).
+        Constructs an ID using the type's prefix and an incrementing integer
+        based on the last assigned ID for that type. The new ID is appended
+        to the type's ID list before being returned.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
+            kind (str): The entity type key, must be one of the keys in the
+                ids class variable (e.g. "Train", "Passenger", "Cargo Car").
 
         Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            str: The newly assigned unique ID string, e.g. "t_player-3".
         """
         if self.ids[kind][1] == []:
             new_id = f"{self.ids[kind][0]}_{self._player}-{0}"
@@ -80,10 +59,3 @@ class TrainDepot:
             new_id = f"{self.ids[kind][0]}_{self._player}-{int(self.ids[kind][1][-1].split("-")[-1]) + 1}"
         self.ids[kind][1].append(new_id)
         return new_id
-    
-    def create_train(self, cars, avatar):
-        new_train = Train(self, cars, avatar)
-        self.add_train(new_train)
-    
-    def add_train(self, new_train):
-        

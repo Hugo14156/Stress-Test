@@ -1,10 +1,11 @@
+"""
+Stress Test - A 2D train logistics game.
+
+Entry point for the application. Initialises and runs the main game loop.
+"""
+
 from app.game import Game
 
-
-def test_line():
+if __name__ == "__main__":
     game = Game()
     game.run_game()
-
-
-if __name__ == "__main__":
-    test_line()

@@ -1,9 +1,0 @@
-[locomotive]
-name = "Hudson J-3"
-asset_path = "assets/trains/hudson_j3"
-acceleration = 2.5
-deceleration = 1.8
-horsepower = 4700
-cost = 500000
-upkeep = 2500
-top_speed = 185
