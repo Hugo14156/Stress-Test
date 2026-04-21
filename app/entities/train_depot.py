@@ -39,7 +39,7 @@ class TrainDepot:
         self._trains = []
         self._node = node
 
-    def assign__id(self, kind):
+    def assign_id(self, kind):
         """Generate and register a new unique ID for an entity of the given type.
 
         Constructs an ID using the type's prefix and an incrementing integer

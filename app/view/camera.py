@@ -46,12 +46,6 @@ class Camera:
         if keys[pygame.K_d]:
             self.x += self.speed
 
-        if event.type == pygame.MOUSEWHEEL:
-            if event.y > 0:  # Scroll up / pinch out
-                self.zoom += self.zoom_speed
-            elif event.y < 0:  # Scroll down / pinch in
-                self.zoom -= self.zoom_speed
-
         if keys[pygame.K_1]:
             self.zoom += self.zoom_speed
         if keys[pygame.K_2]:

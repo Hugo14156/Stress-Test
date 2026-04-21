@@ -7,9 +7,10 @@ during development to verify speed, acceleration, and rotation behaviour.
 
 # pylint: disable=no-member
 import pygame
+from app.avatars.avatar import Avatar
 
 
-class TestTrain:
+class TestTrain(Avatar):
     """A simple rectangular sprite used to visualise train behaviour during testing.
 
     Renders as a red filled rectangle with a black border. Provides fixed stub

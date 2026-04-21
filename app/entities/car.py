@@ -16,7 +16,7 @@ class Car:
     track segments independently when it crosses a node.
     """
 
-    def __init__(self, train, avatar, depot):
+    def __init__(self, train, avatar, depot, kind):
         """Initialise the car and register it with the depot.
 
         Args:
@@ -24,64 +24,13 @@ class Car:
             avatar: The graphical representation of this car.
             depot: The depot used to assign a unique car ID.
         """
-        self.id = depot.assign_pcar_id()
+        self.id = depot.assign_id(kind)
         self.train = train
         self._location = self.train._location
         self.avatar = avatar
         self._t = 0
         self._t_delay = 0
         self._speed = 0
-
-    def load(self, passengers):
-        """Load passengers onto the car up to its capacity.
-
-        Attempts to load all provided passengers in order. Stops early if
-        the car reaches capacity, returning any passengers that could not
-        be boarded.
-
-        Args:
-            passengers (list): A list of Passenger objects to attempt to load.
-
-        Returns:
-            list: Any passengers that could not be loaded due to capacity.
-                Returns an empty list if all passengers were loaded successfully.
-
-        Raises:
-            ValueError: If passengers is not a list.
-            ValueError: If any element in passengers is not a Passenger instance.
-
-        Examples:
-            >>> load([passenger_1, passenger_2, passenger_3])
-            [passenger_3]
-        """
-        from app.entities.passenger import Passenger
-
-        if isinstance(passengers, (list, tuple)):
-            raise ValueError("passengers must be a list or a tuple.")
-        for index, passenger in enumerate(passengers):
-            if isinstance(passenger, Passenger):
-                raise ValueError(f"index {index} of passengers is not a passenger.")
-            if len(self.passengers) < self.avatar.passenger_capacity:
-                self.passengers.append(passenger)
-                passenger.board_train(self)
-            else:
-                return passengers[index:]
-        return []
-
-    def unload(self):
-        """Disembark all passengers whose destination matches the current station.
-
-        Iterates over onboard passengers and removes those who have reached
-        their destination, delegating the disembark logic to each passenger.
-
-        Examples:
-            >>> unload()
-        """
-        location = self.train.location
-        for passenger in self.passengers:
-            if passenger.destination == location:
-                passenger.disembark(location)
-                self.passengers.remove(passenger)
 
     def find_t_delay(self, leader):
         """Calculate the parametric offset behind the leader on the current segment.
@@ -119,13 +68,13 @@ class Car:
             leader: The preceding vehicle whose position this car trails.
             dt (float): Delta time in seconds since the last frame.
         """
-        if self.train._location == self._location:
+        if self.train.location == self._location:
             if self.train.bound == 1:
                 self._t = leader._t - self._t_delay
             else:
                 self._t = leader._t + self._t_delay
         else:
-            self._t += self.train.bound * self.train._speed * dt / self._location.length
+            self._t += self.train.bound * self.train.speed * dt / self._location.length
             if self._t > 1.0:
                 self._arrive_at(self._location.end)
                 self.find_t_delay(leader)

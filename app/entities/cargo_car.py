@@ -25,7 +25,7 @@ class CargoCar(Car):
             avatar: The graphical representation of this car.
             depot: The depot used to assign a unique car ID.
         """
-        super().__init__(train, avatar, depot)
+        super().__init__(train, avatar, depot, "Cargo Car")
         self.cargo = []
 
     def load(self, cargo):

@@ -8,6 +8,7 @@ from app.core.node_graph import Node, Edge, Graph
 from app.entities.line import Line
 from app.entities.train import Train
 from app.entities.car import Car
+from app.entities.cargo_car import CargoCar
 from app.avatars.train_cars.test_car import TestCar
 from app.entities.train_depot import TrainDepot
 from app.avatars.trains.test_train import TestTrain
@@ -170,9 +171,9 @@ class Game:
             The edge where the train will be placed.
         """
         new_train = Train(self.test_depot, [], TestTrain(), self._local_player)
-        new_train.location = self.edges[0]
+        new_train._location = self.edges[0]
         new_train.add_cars(
-            [Car(new_train, TestCar(), self.test_depot) for i in range(5)]
+            [CargoCar(new_train, TestCar(), self.test_depot) for i in range(5)]
         )
         self.trains.append(new_train)
 

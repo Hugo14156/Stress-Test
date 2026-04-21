@@ -48,8 +48,8 @@ class Train:
         # from app.entities.line import Line
 
         if isinstance(depot, TrainDepot):
-            self._id = depot.assign_train_id()
-            self._location = depot.node()
+            self._id = depot.assign_id("Train")
+            # self._location = depot.node()
             self._location = (0, 0)
         else:
             raise ValueError("depot must be an instance of the TrainDepot class.")
