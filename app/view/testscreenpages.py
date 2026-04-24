@@ -63,14 +63,13 @@ while running:
         screens.pause_screen(screen, events)
         if screens.pause_screen(screen, events) == "resume":
             state = "game"
-        
+
     elif state == "quit":
         screens.quit_screen(screen, events)
         if screens.quit_screen(screen, events) == "yes":
             running = False
         elif screens.quit_screen(screen, events) == "no":
             state = "game"
-        
 
     pygame.display.flip()
     clock.tick(60)

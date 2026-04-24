@@ -100,14 +100,17 @@ class Line:
         """
         node_index = self.navigation_nodes.index(current_node)
         if self._main_nodes[0] != self._main_nodes[-1]:
-            if node_index == 0 or node_index == len(self.navigation_nodes) - 1:
-                if bound == 1:
-                    bound = -1
-                else:
-                    bound = 1
+            if node_index == 0:
+                bound = 1
+            elif node_index == len(self.navigation_nodes) - 1:
+                bound = -1
         elif node_index == len(self.navigation_nodes) - 1:
             node_index = 0
         next_node = self.navigation_nodes[node_index + bound]
         for edge in current_node.edges:
             if edge.start == next_node or edge.end == next_node:
                 return edge, bound
+
+    @property
+    def stations(self):
+        return self._main_nodes

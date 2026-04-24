@@ -6,6 +6,8 @@ maintaining trains. Also manages unique ID assignment for all tracked
 entity types associated with a player.
 """
 
+from app.avatars.stations.depot_avatar import DepotAvatar
+
 
 class TrainDepot:
     """A depot that manages train ownership and entity ID tracking for a player.
@@ -25,7 +27,7 @@ class TrainDepot:
         "Train": ["t", []],
     }
 
-    def __init__(self, player, position, node):
+    def __init__(self, player, nodes):
         """Initialise the depot with a owning player and a world position.
 
         Args:
@@ -34,10 +36,12 @@ class TrainDepot:
                 this depot.
             node (Node): The node of the depot.
         """
-        self._position = position
         self._player = player
-        self._trains = []
-        self._node = node
+        self.trains = []
+        self.center_node = nodes[0]
+        self.center_node.reference = self
+        self.entry_node = nodes[1]
+        self.avatar = DepotAvatar(self._player)
 
     def assign_id(self, kind):
         """Generate and register a new unique ID for an entity of the given type.
@@ -59,3 +63,15 @@ class TrainDepot:
             new_id = f"{self.ids[kind][0]}_{self._player}-{int(self.ids[kind][1][-1].split("-")[-1]) + 1}"
         self.ids[kind][1].append(new_id)
         return new_id
+
+    def add_train(self, new_train):
+        if new_train not in self.trains:
+            self.trains.append(new_train)
+
+    def remove_train(self, leaving_train):
+        if leaving_train in self.trains:
+            self.trains.remove(leaving_train)
+
+    @property
+    def player(self):
+        return self._player
