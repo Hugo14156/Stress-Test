@@ -44,7 +44,7 @@ class TestTrain(Avatar):
         Returns:
             int: The fixed acceleration value.
         """
-        return 30
+        return 100
 
     def get_deceleration(self, c):
         """Return the deceleration rate of the train in pixels per second squared.
@@ -56,6 +56,9 @@ class TestTrain(Avatar):
             int: The fixed deceleration value.
         """
         return 10
+
+    def update_condition(self, dt):
+        return 0.1 * dt
 
     def rotate(self, world_position, angle):
         """Rotate a surface while keeping its center.

@@ -64,7 +64,7 @@ class CargoCar(Car):
                 return cargo[index:]
         return []
 
-    def unload(self):
+    def unload(self, station):
         """Unload all cargo wanted by the current station.
 
         Iterates over onboard cargo and removes any whose type is accepted
@@ -73,8 +73,7 @@ class CargoCar(Car):
         Examples:
             >>> unload()
         """
-        location = self.train.location
         for cargo in self.cargo:
-            if isinstance(self, location.wanted_type):
-                cargo.unload(location)
+            if isinstance(self, station.wanted_type):
+                cargo.unload(station)
                 self.cargo.remove(cargo)

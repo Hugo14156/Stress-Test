@@ -10,6 +10,7 @@ and car offsets.
 from app.entities.train_depot import TrainDepot
 from app.player import Player
 from app.avatars.avatar import Avatar
+from app.core.node_graph import Graph
 
 
 class Train:
@@ -49,27 +50,25 @@ class Train:
 
         if isinstance(depot, TrainDepot):
             self._id = depot.assign_id("Train")
-            # self._location = depot.node()
-            self._location = (0, 0)
+            self._location = depot.center_node.edges[0]
         else:
-            raise ValueError("depot must be an instance of the TrainDepot class.")
-        if all(isinstance(car, Car) for car in cars):
-            self._cars = cars
+            raise ValueError("depot must be a TrainDepot class.")
+        if isinstance(cars, (tuple, list)):
+            if all(isinstance(car, Car) for car in cars):
+                self._cars = cars
+            else:
+                raise ValueError("cars must only contain Car objects.")
         else:
-            raise ValueError(
-                "cars must be a list containing either nothing or only Car/children-of-Car objects."
-            )
+            raise ValueError("cars must be a list or tuple")
         if isinstance(avatar, Avatar):
             self._avatar = avatar
         else:
-            raise ValueError(
-                "avatar must be an Avatar object or a child object of the Avatar class."
-            )
+            raise ValueError("avatar must be an Avatar object.")
 
         if isinstance(player, Player):
             self._player = player
         else:
-            raise ValueError("player must be Player object.")
+            raise ValueError("player must be a Player object.")
         self._bound = 1
         self._line = None
         self._position = None
@@ -78,14 +77,39 @@ class Train:
         self._acceleration = 0
         self._deceleration = 0
         self._t = 0
-        self._distance_to_next_station = 10000
         self._calculate_movement_statistics()
         self.find_car_offsets()
+        self.status = "Idle"
+        self.navigation_path = []
+        self.condition = 1
 
-    def unload(self):
+    def tick(self, dt):
+        """Advance the train's state by one frame.
+
+        Updates speed and moves the train along its current segment.
+
+        Args:
+            dt (float): Delta time in seconds since the last frame.
+        """
+        if self.status == "Running" or self.status == "Navigating":
+            self._calculate_speed(
+                True,
+                dt,
+            )
+            self._move_along_segment(dt)
+        elif self.status == "Maintaining":
+            if self.condition >= 1:
+                self.condition = 1
+                self.assign_to_line(self._line)
+            else:
+                self.update_condition(dt)
+        elif self.status == "At Station":
+            self.unload(self._location)
+
+    def unload(self, station):
         """Instruct all cars to unload relevant passengers or cargo at the current station."""
         for car in self._cars:
-            car.unload()
+            car.unload(station)
 
     def load(self, new_cargo):
         """Distribute cargo or passengers across all cars in order until full.
@@ -113,7 +137,18 @@ class Train:
         Args:
             new_cars (list[Car]): The cars to add to the consist.
         """
-        self._cars += new_cars
+        from app.entities.car import Car
+
+        if isinstance(new_cars, Car) and Car not in self._cars:
+            self._cars.append(new_cars)
+        elif isinstance(new_cars, (tuple, list)) and all(
+            isinstance(car, Car) for car in new_cars
+        ):
+            self._cars += [car for car in new_cars if car not in self._cars]
+        else:
+            raise ValueError(
+                "new_cars must be a Car object or a list/turple of Car objects"
+            )
         self.find_car_offsets()
 
     def _calculate_speed(self, accelerate: bool, dt):
@@ -131,20 +166,6 @@ class Train:
         elif self._speed > 0:
             self._speed -= self._deceleration * dt
 
-    def tick(self, dt):
-        """Advance the train's state by one frame.
-
-        Updates speed and moves the train along its current segment.
-
-        Args:
-            dt (float): Delta time in seconds since the last frame.
-        """
-        self._calculate_speed(
-            True,
-            dt,
-        )
-        self._move_along_segment(dt)
-
     def stop_distance(self):
         """Calculate the distance required to come to a complete stop.
 
@@ -152,6 +173,13 @@ class Train:
             float: The braking distance in world units at the current speed.
         """
         return ((self._speed**2) / self._deceleration) / 2
+
+    def update_condition(self, dt):
+        if self.status == "Running" or self.status == "Navigating":
+            self.condition -= self._avatar.update_condition(dt)
+        elif self.status == "Maintaining":
+            self.condition += 0.1 * dt
+        print(self.condition)
 
     def _move_along_segment(self, dt):
         """Advance the train and all its cars along the current track segment.
@@ -170,10 +198,14 @@ class Train:
             else:
                 car.move_along_segment(self._cars[index - 1], dt)
 
-        if self._t > 1.0:
-            self._arrive_at(self._location.end)
-        elif self._t < 0.0:
-            self._arrive_at(self._location.start)
+        self.update_condition(dt)
+        if self.condition <= 0 and self.status == "Running":
+            self.maintain_condition()
+        else:
+            if self._t > 1.0:
+                self._arrive_at(self._location.end)
+            elif self._t < 0.0:
+                self._arrive_at(self._location.start)
 
     def find_car_offsets(self):
         """Recalculate the parametric t-delay offsets for all attached cars.
@@ -192,6 +224,8 @@ class Train:
         """Assign this train to a line for operation."""
 
         self._line = line
+        self.navigation_path = self.navigate_to(line.stations[0])
+        self.status = "Navigating"
 
     def get_position(self):
         """Return the current world position of the locomotive on its segment.
@@ -210,15 +244,37 @@ class Train:
         Args:
             node (Node): The node the train has just reached.
         """
-        self._location.remove_train(self)
-        if node in self.line._main_nodes:
-            self._arrive_at_station(node)
-        else:
-            new_edge, new_bound = self.line.next_edge(node, self._bound)
-            self._location = new_edge
-            self._bound = new_bound
-            self._location.add_train(self)
-            self._t = 0 if new_bound == 1 else 1
+        print(self.condition)
+        if self.status == "Running":
+            self._location.remove_train(self)
+            if node in self.line.stations:
+                self._arrive_at_station(node)
+            else:
+                new_edge, new_bound = self.line.next_edge(node, self._bound)
+                self._location = new_edge
+                self._bound = new_bound
+                self._location.add_train(self)
+                self._t = 0 if new_bound == 1 else 1
+        elif self.status == "Navigating":
+            if node == self.navigation_path[-1]:
+                self._arrive_at_station(node)
+            else:
+                self._location.remove_train(self)
+                next_target_node = self.navigation_path[
+                    self.navigation_path.index(node) + 1
+                ]
+                for edge in node.edges:
+                    if edge.start == next_target_node:
+                        self._bound = -1
+                        self._t = 1
+                        self._location = edge
+                        self._location.add_train(self)
+                    elif edge.end == next_target_node:
+                        self._bound = 1
+                        self._t = 0
+                        self._location = edge
+                        self._location.add_train(self)
+
             # self._distance_to_next_station = self._line.distance_to_next_station(
             #     node, self._bound
             # )
@@ -238,11 +294,19 @@ class Train:
         Args:
             node (Node): The station node the train has arrived at.
         """
-        new_edge, new_bound = self.line.next_edge(node, self._bound)
-        self._location = new_edge
-        self._bound = new_bound
-        self._location.add_train(self)
-        self._t = 0 if new_bound == 1 else 1
+        if self.status == "Navigating":
+            if self.condition <= 0 and isinstance(node.reference, TrainDepot):
+                print("Maintaining")
+                self.status = "Maintaining"
+            else:
+                self.status = "Running"
+                self._arrive_at(node)
+        elif self.status == "Running":
+            new_edge, new_bound = self.line.next_edge(node, self._bound)
+            self._location = new_edge
+            self._bound = new_bound
+            self._location.add_train(self)
+            self._t = 0 if new_bound == 1 else 1
         # self._distance_to_next_station = self._line.distance_to_next_station(
         #     node, self._bound
         # )
@@ -345,6 +409,10 @@ class Train:
                 "new_cars must be a list containing either nothing or only Car/children-of-Car objects."
             )
 
+    def maintain_condition(self):
+        self.find_nearest_depot()
+        self.status = "Navigating"
+
     def set_avatar(self, new_avatar):
         """Replace the train's avatar.
 
@@ -409,3 +477,21 @@ class Train:
             raise ValueError(
                 "new_position must be a three element long list or turple integers or floats"
             )
+
+    def find_nearest_depot(self):
+        graph = Graph()
+        shortest_length = float("inf")
+        shortest_path = []
+        start_node = self._location.end if self._bound == 1 else self._location.start
+        for depot in self._player.game.depots:
+            if depot.player == self._player:
+                path_info = graph.find_shortest_path(start_node, depot.center_node)
+                if path_info[0] < shortest_length:
+                    shortest_path = path_info[1]
+                    shortest_length = path_info[0]
+        self.navigation_path = shortest_path
+        self.status = "Navigating"
+
+    def navigate_to(self, target_node):
+        graph = Graph()
+        return graph.find_shortest_path(self._location.start, target_node)[1]
