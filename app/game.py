@@ -12,6 +12,7 @@ from app.entities.cargo_car import CargoCar
 from app.avatars.train_cars.test_car import TestCar
 from app.entities.train_depot import TrainDepot
 from app.avatars.trains.test_train import TestTrain
+from app.avatars.trains.EMD_E8 import EMD_E8
 
 
 class Game:
@@ -201,7 +202,7 @@ class Game:
         edge : Edge
             The edge where the train will be placed.
         """
-        new_train = Train(self.depots[0], [], TestTrain(), self._local_player)
+        new_train = Train(self.depots[0], [], EMD_E8(), self._local_player)
         new_train.add_cars(
             [CargoCar(new_train, TestCar(), self.depots[0]) for i in range(5)]
         )

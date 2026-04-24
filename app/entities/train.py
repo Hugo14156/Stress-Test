@@ -191,6 +191,7 @@ class Train:
         Args:
             dt (float): Delta time in seconds since the last frame.
         """
+        self._calculate_movement_statistics()
         self._t += self._bound * self._speed * dt / self._location.length
         for index, car in enumerate(self._cars):
             if index == 0:
@@ -282,8 +283,8 @@ class Train:
     def _calculate_movement_statistics(self):
         """Derive max speed, acceleration, and deceleration from the avatar and consist."""
         self._max_speed = self._avatar.get_max_speed(self._cars)
-        self._acceleration = self._avatar.get_acceleration(self._cars)
-        self._deceleration = self._avatar.get_deceleration(self._cars)
+        self._acceleration = self._avatar.get_max_acceleration(self._speed, self._cars)
+        self._deceleration = self._acceleration
 
     def _arrive_at_station(self, node):
         """Handle the train arriving at a main station node.
