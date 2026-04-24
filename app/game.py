@@ -2,6 +2,7 @@
 
 import os
 import tkinter as tk
+from app.avatars.trains.EMD_E8 import EMD_E8
 import pygame
 from app.player import Player
 from app.core.node_graph import Node, Edge, Graph
@@ -170,7 +171,7 @@ class Game:
         edge : Edge
             The edge where the train will be placed.
         """
-        new_train = Train(self.test_depot, [], TestTrain(), self._local_player)
+        new_train = Train(self.test_depot, [], EMD_E8(), self._local_player)
         new_train._location = self.edges[0]
         new_train.add_cars(
             [CargoCar(new_train, TestCar(), self.test_depot) for i in range(5)]

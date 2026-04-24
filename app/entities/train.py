@@ -152,6 +152,7 @@ class Train:
             float: The braking distance in world units at the current speed.
         """
         return ((self._speed**2) / self._deceleration) / 2
+        # need to fix since deceleration is piecewise
 
     def _move_along_segment(self, dt):
         """Advance the train and all its cars along the current track segment.
@@ -226,8 +227,8 @@ class Train:
     def _calculate_movement_statistics(self):
         """Derive max speed, acceleration, and deceleration from the avatar and consist."""
         self._max_speed = self._avatar.get_max_speed(self._cars)
-        self._acceleration = self._avatar.get_acceleration(self._cars)
-        self._deceleration = self._avatar.get_deceleration(self._cars)
+        self._acceleration = self._avatar.get_acceleration(self.speed, self._cars)
+        self._deceleration = self._avatar.get_deceleration(self.speed, self._cars)
 
     def _arrive_at_station(self, node):
         """Handle the train arriving at a main station node.

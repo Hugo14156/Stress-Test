@@ -1,8 +1,7 @@
 """
-Test train visual component for debugging train movement and physics.
+Defines the EMD E8 locomotive avatar, including its static and live specifications.
 
-Provides a simple coloured rectangle sprite with stub physics values used
-during development to verify speed, acceleration, and rotation behaviour.
+Includes calculation methods for max speed, acceleration, and deceleration.
 """
 
 # pylint: disable=no-member
@@ -63,42 +62,70 @@ class EMD_E8(Avatar):
         return max_speed * 3.6 # convert to km/h
         
 
-    def get_max_acceleration(self, velocity, car_list):
+    def get_acceleration(self, velocity, car_list):
         """
-        Return the maximum acceleration rate of the train in km/h^2.
+        Return the (maximum) acceleration rate of the train in km/h^2.
 
         Args:
             velocity: The current velocity of the train.
             car_list: A list of cars attached to the locomotive.
 
         Returns:
-            max_acceleration: The calculated acceleration of the train in km/h^2
+            acceleration: The calculated acceleration of the train in km/h^2
         """
         gravity = 9.81 # in m/s^2
         coeff_friction = 0.35 # coefficient of friction for steel wheels on steel rails
 
         carried_weight = 0
         for car in car_list:
-            carried_weight += car.mass # replace later
-        
-        max_acceleration = min(coeff_friction * gravity, self._power_output / ((self._mass + carried_weight) * velocity)) # in m/s^2
+            carried_weight += car.avatar.mass
+        if velocity == 0:
+            acceleration = coeff_friction * gravity # in m/s^2
+        else:
+            acceleration = min(coeff_friction * gravity, self._power_output / ((self._mass + carried_weight) * velocity)) # in m/s^2
 
-        return max_acceleration * 12960 # convert to km/h^2
+        return acceleration #* 12960 # convert to km/h^2
 
-    def get_max_deceleration(self, velocity, car_list):
+    def get_deceleration(self, velocity, car_list):
         """
-        Return the maximum deceleration rate of the train in km/h^2.
+        Return the (maximum) deceleration rate of the train in km/h^2.
 
         Args:
             velocity: The current velocity of the train.
             car_list: A list of cars attached to the locomotive.
 
         Returns:
-            max_deceleration: The calculated deceleration of the train in km/h^2
+            deceleration: The calculated deceleration of the train in km/h^2
         """
-        max_deceleration = -self.get_max_acceleration(velocity, car_list) # in km/h^2
-        return max_deceleration
+        deceleration = -self.get_acceleration(velocity, car_list) # in km/h^2
+        return deceleration
+    
+    def distance_to_stop(self, velocity, car_list):
+        """
+        Calculate the distance required for the train to come to a complete stop from its current velocity.
 
+        Args:
+            velocity: The current velocity of the train in km/h.
+            car_list: A list of cars attached to the locomotive.
+
+        Returns:
+            distance: The calculated stopping distance of the train in km.
+        """
+        distance = 0
+        gravity = 9.81 # in m/s^2
+        coeff_friction = 0.35 # coefficient of friction for steel wheels on steel rails
+
+        carried_weight = 0
+        for car in car_list:
+            carried_weight += car.avatar.mass # replace later
+
+        if coeff_friction * gravity > self._power_output / ((self._mass + carried_weight) * velocity):
+            distance = distance + ((((coeff_friction * gravity / (self._mass + carried_weight)) ** 2) - velocity ** 2) / 2 * self.get_deceleration(velocity, car_list))
+            distance = distance + (-((coeff_friction * gravity / (self._mass + carried_weight)) ** 2) / 2 * self.get_deceleration((coeff_friction * gravity / (self._mass + carried_weight)), car_list))
+        else:
+            distance = distance + ((-(velocity ** 2)) / (self.get_deceleration(velocity, car_list) * 2))
+        return distance #/ 1000 # convert to km
+    
     def rotate(self, world_position, angle):
         """Rotate a surface while keeping its center.
 

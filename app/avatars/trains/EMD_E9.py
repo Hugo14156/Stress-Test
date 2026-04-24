@@ -1,8 +1,7 @@
 """
-Test train visual component for debugging train movement and physics.
+Defines the EMD E9 locomotive avatar, including its static and live specifications.
 
-Provides a simple coloured rectangle sprite with stub physics values used
-during development to verify speed, acceleration, and rotation behaviour.
+Includes calculation methods for max speed, acceleration, and deceleration.
 """
 
 # pylint: disable=no-member
@@ -63,16 +62,16 @@ class EMD_E9(Avatar):
         return max_speed * 3.6 # convert to km/h
         
 
-    def get_max_acceleration(self, velocity, car_list):
+    def get_acceleration(self, velocity, car_list):
         """
-        Return the maximum acceleration rate of the train in km/h^2.
+        Return the (maximum) acceleration rate of the train in km/h^2.
 
         Args:
             velocity: The current velocity of the train.
             car_list: A list of cars attached to the locomotive.
 
         Returns:
-            max_acceleration: The calculated acceleration of the train in km/h^2
+            acceleration: The calculated acceleration of the train in km/h^2
         """
         gravity = 9.81 # in m/s^2
         coeff_friction = 0.35 # coefficient of friction for steel wheels on steel rails
@@ -81,23 +80,26 @@ class EMD_E9(Avatar):
         for car in car_list:
             carried_weight += car.mass # replace later
         
-        max_acceleration = min(coeff_friction * gravity, self._power_output / ((self._mass + carried_weight) * velocity)) # in m/s^2
+        if velocity == 0:
+            acceleration = coeff_friction * gravity # in m/s^2
+        else:
+            acceleration = min(coeff_friction * gravity, self._power_output / ((self._mass + carried_weight) * velocity)) # in m/s^2
 
-        return max_acceleration * 12960 # convert to km/h^2
+        return acceleration #* 12960 # convert to km/h^2
 
-    def get_max_deceleration(self, velocity, car_list):
+    def get_deceleration(self, velocity, car_list):
         """
-        Return the maximum deceleration rate of the train in km/h^2.
+        Return the (maximum) deceleration rate of the train in km/h^2.
 
         Args:
             velocity: The current velocity of the train.
             car_list: A list of cars attached to the locomotive.
 
         Returns:
-            max_deceleration: The calculated deceleration of the train in km/h^2
+            deceleration: The calculated deceleration of the train in km/h^2
         """
-        max_deceleration = -self.get_max_acceleration(velocity, car_list) # in km/h^2
-        return max_deceleration
+        deceleration = -self.get_acceleration(velocity, car_list) # in km/h^2
+        return deceleration
 
     def rotate(self, world_position, angle):
         """Rotate a surface while keeping its center.
