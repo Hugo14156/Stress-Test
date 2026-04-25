@@ -1,17 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from websockets.asyncio.server import Server, ServerConnection, serve
 
+from app.networking.serialize import serialize_map, serialize_tick, serialize_resync, serialize_reject
+
 MessageHandler = Callable[[str, ServerConnection], Awaitable[Any] | Any]
 ConnectionHandler = Callable[[ServerConnection], Awaitable[Any] | Any]
 
+# How many ticks behind a client action is allowed to be before rejection
+MAX_TICK_AGE = 60
+
 
 class WebSocketServer:
-    """Basic websocket server with optional broadcast behavior."""
+    """WebSocket server that drives the authoritative game simulation.
+
+    Broadcasts tick state to all clients at a fixed rate, handles incoming
+    client actions, and tracks per-client lag via ack messages.
+    """
 
     def __init__(
         self,
@@ -27,7 +38,17 @@ class WebSocketServer:
         self._on_connect = on_connect
         self._on_disconnect = on_disconnect
         self._clients: set[ServerConnection] = set()
+        self._client_ids: dict[ServerConnection, str] = {}
+        self._client_acks: dict[str, int] = {}
+        self._cursors: dict[str, dict] = {}
         self._server: Server | None = None
+        self._tick: int = 0
+        self._game = None
+        self._tick_task: asyncio.Task | None = None
+
+    def attach_game(self, game) -> None:
+        """Attach the authoritative game instance to serialize and broadcast."""
+        self._game = game
 
     async def start(self) -> None:
         if self._server is not None:
@@ -37,6 +58,9 @@ class WebSocketServer:
     async def stop(self) -> None:
         if self._server is None:
             raise RuntimeError("Server is not running.")
+        if self._tick_task is not None:
+            self._tick_task.cancel()
+            self._tick_task = None
         self._server.close()
         await self._server.wait_closed()
         self._server = None
@@ -46,6 +70,20 @@ class WebSocketServer:
         if self._server is None:
             raise RuntimeError("Server is not running.")
         await self._server.wait_closed()
+
+    async def start_tick_loop(self, ticks_per_second: int = 20) -> None:
+        """Begin broadcasting tick state at the given rate."""
+        self._tick_task = asyncio.create_task(self._tick_loop(ticks_per_second))
+
+    async def _tick_loop(self, ticks_per_second: int) -> None:
+        interval = 1 / ticks_per_second
+        while True:
+            await asyncio.sleep(interval)
+            if self._game is not None and self._clients:
+                cursors = list(self._cursors.values())
+                packet = serialize_tick(self._game, self._tick, cursors)
+                await self.broadcast(json.dumps(packet))
+            self._tick += 1
 
     async def send_to(self, client: ServerConnection, message: str) -> None:
         await client.send(message)
@@ -67,32 +105,73 @@ class WebSocketServer:
             return_exceptions=False,
         )
 
+    def get_lag_report(self) -> dict[str, int]:
+        """Return how many ticks behind each client is, keyed by client ID."""
+        return {cid: self._tick - ack for cid, ack in self._client_acks.items()}
+
     async def _handle_client(self, websocket: ServerConnection) -> None:
+        cid = str(uuid.uuid4())
         self._clients.add(websocket)
+        self._client_ids[websocket] = cid
+        self._client_acks[cid] = self._tick
+
+        await websocket.send(json.dumps({"type": "id", "id": cid}))
+
+        if self._game is not None:
+            await websocket.send(json.dumps(serialize_map(self._game)))
+
         if self._on_connect is not None:
             result = self._on_connect(websocket)
             if asyncio.iscoroutine(result):
                 await result
+
         try:
             async for message in websocket:
-                if self._message_handler is not None:
-                    result = self._message_handler(message, websocket)
-                    if asyncio.iscoroutine(result):
-                        await result
-                else:
-                    await self.broadcast(message)
+                await self._route_message(message, websocket, cid)
         finally:
             self._clients.discard(websocket)
+            self._client_ids.pop(websocket, None)
+            self._client_acks.pop(cid, None)
+            self._cursors.pop(cid, None)
+            await self.broadcast(json.dumps({"type": "leave", "id": cid}))
             if self._on_disconnect is not None:
                 result = self._on_disconnect(websocket)
                 if asyncio.iscoroutine(result):
                     await result
 
+    async def _route_message(self, message: str, sender: ServerConnection, cid: str) -> None:
+        data = json.loads(message)
+        msg_type = data.get("type")
+        msg_tick = data.get("tick", self._tick)
+
+        if msg_type == "ack":
+            self._client_acks[cid] = msg_tick
+            return
+
+        if msg_type == "resync":
+            if self._game is not None:
+                packet = serialize_resync(self._game, self._tick)
+                await sender.send(json.dumps(packet))
+            return
+
+        if msg_type == "cursor":
+            self._cursors[cid] = {"id": cid, "x": data["x"], "y": data["y"]}
+            return
+
+        # Reject actions that are too old
+        if self._tick - msg_tick > MAX_TICK_AGE:
+            reject = serialize_reject(self._tick, msg_type, "tick too old")
+            await sender.send(json.dumps(reject))
+            return
+
+        if self._message_handler is not None:
+            result = self._message_handler(data, sender, cid)
+            if asyncio.iscoroutine(result):
+                await result
+
 
 if __name__ == "__main__":
-    import json
     import socket
-    import uuid
 
     def _get_local_ip() -> str:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -100,36 +179,13 @@ if __name__ == "__main__":
             return s.getsockname()[0]
 
     async def _main() -> None:
-        client_ids: dict[ServerConnection, str] = {}
-
-        async def on_connect(ws: ServerConnection) -> None:
-            cid = str(uuid.uuid4())
-            client_ids[ws] = cid
-            await ws.send(json.dumps({"type": "id", "id": cid}))
-            print(f"[server] client connected: {cid[:8]}")
-
-        async def on_disconnect(ws: ServerConnection) -> None:
-            cid = client_ids.pop(ws, None)
-            if cid:
-                print(f"[server] client disconnected: {cid[:8]}")
-                await server.broadcast(json.dumps({"type": "leave", "id": cid}))
-
-        async def on_message(msg: str, sender: ServerConnection) -> None:
-            data = json.loads(msg)
-            if data.get("type") == "pos":
-                cid = client_ids.get(sender)
-                if cid:
-                    relay = json.dumps({"type": "pos", "id": cid, "x": data["x"], "y": data["y"]})
-                    await server.broadcast_except(relay, exclude=sender)
+        async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
+            print(f"[server] {cid[:8]} -> {data.get('type')}")
 
         local_ip = _get_local_ip()
-        server = WebSocketServer(
-            host="0.0.0.0",
-            message_handler=on_message,
-            on_connect=on_connect,
-            on_disconnect=on_disconnect,
-        )
+        server = WebSocketServer(host="0.0.0.0", message_handler=on_message)
         await server.start()
+        await server.start_tick_loop()
         print(f"[server] listening on ws://{local_ip}:8765 — Ctrl+C to stop")
         await server.wait_closed()
 
