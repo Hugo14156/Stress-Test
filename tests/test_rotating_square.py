@@ -18,10 +18,12 @@ rect_width, rect_height = 120, 60
 rect_surface = pygame.Surface(
     (rect_width, rect_height), pygame.SRCALPHA
 )  # SRCALPHA for transparency
-rect_surface.fill((255, 0, 0))  # Fill with red
+# rect_surface.fill((255, 0, 0))  # Fill with red
 
 # Optional: Draw a border for visibility
-pygame.draw.rect(rect_surface, (0, 0, 0), rect_surface.get_rect(), 3)
+image = pygame.image.load("assets/sprites/trains/EMD_8.png")
+rect_surface.blit(image, (0, 0))
+# pygame.draw.rect(rect_surface, , rect_surface.get_rect(), 3)
 
 # Position variables
 center_x, center_y = WIDTH // 2, HEIGHT // 2
@@ -54,7 +56,7 @@ while True:
     blit_rotate_center(
         screen,
         rect_surface,
-        (20 - rect_width // 2, center_y - rect_height // 2),
+        (rect_width // 2, center_y - rect_height // 2),
         angle,
     )
 

@@ -105,12 +105,29 @@ class Screens:
         text = self.button_font.render("X", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=quit_button.center))
 
+        track_button = pygame.Rect(self.width // 2 + 100, 20, 70, 70)
+        track_hovered = track_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (150, 150, 150) if track_hovered else (100, 100, 100),
+            track_button,
+            border_radius=12,
+        )
+
+        text = pygame.font.SysFont("Trebuchet MS", 20).render(
+            "Place\nTrack", True, (255, 255, 255)
+        )
+        screen.blit(text, text.get_rect(center=track_button.center))
+
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1 and pause_hovered:
                     return "pause"
                 if event.button == 1 and quit_hovered:
                     return "quit"
+                if event.button == 1 and track_hovered:
+                    return "place_track"
 
         return None
 
