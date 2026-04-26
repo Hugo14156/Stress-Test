@@ -36,7 +36,7 @@ class Passenger:
         from app.entities.city import City
 
         if isinstance(location, City):
-            self._id = location.assign__id("Passenger")
+            self._id = location.assign_id("Passenger")
             self._location = location
         else:
             raise ValueError("location must be a City object")

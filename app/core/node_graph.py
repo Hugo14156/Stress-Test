@@ -38,8 +38,7 @@ class Node:
     def check_collision(self, position):
         dx = position[0] - self.position[0]
         dy = position[1] - self.position[1]
-        distance = math.hypot(dx, dy)
-        print(distance)  # Euclidean distance
+        distance = math.hypot(dx, dy)  # Euclidean distance
         return distance <= 20
 
     def add_edge(self, new_edge):
@@ -90,9 +89,7 @@ class Edge:
         end_node.add_edge(self)
         self.angle = self.angle_between_points()
         self.avatar = TrackAvatar(self.length)
-        # self.surface = pygame.Surface((self.length, 10), pygame.SRCALPHA)
-        # self.surface.fill((255, 0, 0))
-        self.surface, self.render_position = self.rotate()
+        self.full_surface, self.line_surface, self.render_position = self.rotate()
 
     def angle_between_points(self):
         """
@@ -120,6 +117,11 @@ class Edge:
         # Convert to degrees
         return -math.degrees(angle_rad) % 360
 
+    def change_color(self, color):
+        print(color)
+        self.avatar.change_color(color)
+        self.full_surface, self.line_surface, self.render_position = self.rotate()
+
     def rotate(self):
         """Rotate a surface while keeping its center.
 
@@ -131,8 +133,13 @@ class Edge:
             tuple[pygame.Surface, tuple[int, int]]: The rotated surface and the
                 top-left position to blit it at, preserving the train's visual centre.
         """
-        rotated_image = pygame.transform.rotate(self.avatar.full_surface, self.angle)
-        new_rect = rotated_image.get_rect(
+        rotated_full_image = pygame.transform.rotate(
+            self.avatar.full_surface, self.angle
+        )
+        rotated_line_image = pygame.transform.rotate(
+            self.avatar.line_surface, self.angle
+        )
+        new_rect = rotated_full_image.get_rect(
             center=self.avatar.full_surface.get_rect(
                 topleft=(
                     self.world_position[0] - self.length // 2,
@@ -140,7 +147,7 @@ class Edge:
                 )
             ).center
         )
-        return (rotated_image, new_rect.topleft)
+        return (rotated_full_image, rotated_line_image, new_rect.topleft)
 
     def give_position(self, portion_traveled):
         if isinstance(portion_traveled, (int, float)):
@@ -271,3 +278,67 @@ class Graph:
             path.append(node)
             node = prev[node]
         return list(reversed(path))
+
+    # def find_shortest_path(
+    #     self, start: "Node", end: "Node"
+    # ) -> tuple[float, list["Node"], list["Edge"]]:
+    #     """
+    #     Find the shortest path between two nodes using Dijkstra's algorithm.
+
+    #     Returns:
+    #         (distance, path_nodes, path_edges)
+    #     """
+    #     dist: dict["Node", float] = {start: 0.0}
+    #     prev_node: dict["Node", Optional["Node"]] = {start: None}
+    #     prev_edge: dict["Node", Optional["Edge"]] = {start: None}
+    #     heap: list[tuple[float, "Node"]] = [(0.0, start)]
+
+    #     while heap:
+    #         cost, node = heapq.heappop(heap)
+
+    #         if node is end:
+    #             path_nodes, path_edges = self._reconstruct_path(
+    #                 prev_node=prev_node,
+    #                 prev_edge=prev_edge,
+    #                 end=end,
+    #             )
+    #             return cost, path_nodes, path_edges
+
+    #         if cost > dist.get(node, float("inf")):
+    #             continue
+
+    #         for edge in node.edges:
+    #             neighbour = edge.end if edge.start is node else edge.start
+    #             new_cost = cost + edge.length
+
+    #             if new_cost < dist.get(neighbour, float("inf")):
+    #                 dist[neighbour] = new_cost
+    #                 prev_node[neighbour] = node
+    #                 prev_edge[neighbour] = edge
+    #                 heapq.heappush(heap, (new_cost, neighbour))
+
+    #     raise ValueError(f"No path exists between {start} and {end}")
+
+    # def _reconstruct_path(
+    #     self,
+    #     prev_node: dict["Node", Optional["Node"]],
+    #     prev_edge: dict["Node", Optional["Edge"]],
+    #     end: "Node",
+    # ) -> tuple[list["Node"], list["Edge"]]:
+    #     """
+    #     Reconstruct shortest-path nodes and edges from predecessor maps.
+    #     """
+    #     nodes: list["Node"] = []
+    #     edges: list["Edge"] = []
+
+    #     node: Optional["Node"] = end
+    #     while node is not None:
+    #         nodes.append(node)
+    #         edge = prev_edge[node]
+    #         if edge is not None:
+    #             edges.append(edge)
+    #         node = prev_node[node]
+
+    #     nodes.reverse()
+    #     edges.reverse()
+    #     return nodes, edges
