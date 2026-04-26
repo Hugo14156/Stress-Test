@@ -31,6 +31,7 @@ class Car:
         self._t = 0
         self._t_delay = 0
         self._speed = 0
+        self._bound = 1
 
     def find_t_delay(self, leader):
         """Calculate the parametric offset behind the leader on the current segment.
@@ -73,8 +74,9 @@ class Car:
                 self._t = leader._t - self._t_delay
             else:
                 self._t = leader._t + self._t_delay
+            self._bound = self.train.bound
         else:
-            self._t += self.train.bound * self.train.speed * dt / self._location.length
+            self._t += self._bound * self.train.speed * dt / self._location.length
             if self._t > 1.0:
                 self._arrive_at(leader)
                 self.find_t_delay(leader)

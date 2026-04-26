@@ -120,6 +120,21 @@ class Screens:
         )
         screen.blit(text, text.get_rect(center=track_button.center))
 
+        line_button = pygame.Rect(self.width // 2 + 190, 20, 70, 70)
+        line_hovered = line_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (150, 150, 150) if line_hovered else (100, 100, 100),
+            line_button,
+            border_radius=12,
+        )
+
+        text = pygame.font.SysFont("Trebuchet MS", 20).render(
+            "Make\nLine", True, (255, 255, 255)
+        )
+        screen.blit(text, text.get_rect(center=line_button.center))
+
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1 and pause_hovered:
@@ -128,6 +143,8 @@ class Screens:
                     return "quit"
                 if event.button == 1 and track_hovered:
                     return "place_track"
+                if event.button == 1 and line_hovered:
+                    return "make_line"
 
         return None
 
