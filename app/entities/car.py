@@ -44,7 +44,7 @@ class Car:
         """
         distance_offset = (
             self.avatar.surface.get_width() // 2
-            + leader.avatar.surface.get_height() // 2
+            + leader.avatar.surface.get_width() // 2
             + 0.1
         )
         self._t_delay = distance_offset / self._location.length
