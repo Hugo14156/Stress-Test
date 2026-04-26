@@ -7,9 +7,10 @@ stations, edge traversal, and distance queries for train routing logic.
 """
 
 from app.core.node_graph import Node, Edge, Graph
+from app.entities.entity import Entity
 
 
-class Line:
+class Line(Entity):
     """A route along which trains operate, defined by an ordered sequence of nodes.
 
     Computes a full navigation path between main stations using the graph's
@@ -39,6 +40,7 @@ class Line:
                 raise ValueError("nodes must be a list or turple")
         else:
             self._main_nodes = []
+        super().__init__()
         self.graph = Graph()
         self.navigation_nodes = []
         self.calculate_navigation_path()

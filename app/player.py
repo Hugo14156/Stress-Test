@@ -5,6 +5,7 @@ from app.view.screens import Screens
 class Player:
 
     def __init__(self, game, name, color):
+        self.id = None
         self._game = game
         self._name = name
         self.camera = Camera(self._game.resolution[0], self._game.resolution[1])

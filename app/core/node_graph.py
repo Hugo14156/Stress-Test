@@ -27,6 +27,8 @@ class Node:
 
         Returns: nothing
         """
+        self.id = None
+        self.owner = None
         self.reference = reference
         self.position = position
         self.render_position = (position[0] - 20, position[1] - 20)
@@ -75,6 +77,8 @@ class Edge:
 
         Returns: nothing
         """
+        self.id = None
+        self.owner = None
         self.start = start_node
         self.end = end_node
         self.trains = []

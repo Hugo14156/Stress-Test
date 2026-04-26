@@ -8,12 +8,13 @@ and car offsets.
 """
 
 from app.entities.train_depot import TrainDepot
+from app.entities.entity import Entity
 from app.player import Player
 from app.avatars.avatar import Avatar
 from app.core.node_graph import Graph
 
 
-class Train:
+class Train(Entity):
     """A locomotive that transports passengers and/or cargo along a line.
 
     Trains are purchased at a depot and assigned to a line, upon which they
@@ -48,8 +49,10 @@ class Train:
 
         # from app.entities.line import Line
 
+        super().__init__()
         if isinstance(depot, TrainDepot):
-            self._id = depot.assign_id("Train")
+            self.id = depot.assign_id("Train")
+            self.owner = player
             self._location = depot.center_node.edges[0]
         else:
             raise ValueError("depot must be a TrainDepot class.")
@@ -312,11 +315,6 @@ class Train:
         # )
 
     @property
-    def id(self):
-        """str: The unique identifier for this train."""
-        return self._id
-
-    @property
     def location(self):
         """Edge: The track segment the train is currently travelling along."""
         return self._location
@@ -360,20 +358,6 @@ class Train:
     def deceleration(self):
         """float: The deceleration rate in pixels per second squared."""
         return self._deceleration
-
-    def set_id(self, new_id):
-        """Set the train's unique identifier.
-
-        Args:
-            new_id (str): The new ID string to assign.
-
-        Raises:
-            ValueError: If new_id is not a string.
-        """
-        if isinstance(new_id, str):
-            self._id = new_id
-        else:
-            raise ValueError("new_id must be a string.")
 
     def set_location(self, new_location):
         """Set the train's current location.

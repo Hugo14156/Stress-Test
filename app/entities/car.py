@@ -7,7 +7,10 @@ tracking along track segments, and following the lead vehicle.
 """
 
 
-class Car:
+from app.entities.entity import Entity
+
+
+class Car(Entity):
     """
     A train car that follows a train along the track network.
 
@@ -24,7 +27,9 @@ class Car:
             avatar: The graphical representation of this car.
             depot: The depot used to assign a unique car ID.
         """
+        super().__init__()
         self.id = depot.assign_id(kind)
+        self.owner = depot.owner
         self.train = train
         self._location = self.train._location
         self.avatar = avatar

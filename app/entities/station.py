@@ -7,7 +7,10 @@ between a node in the track graph and its graphical avatar.
 """
 
 
-class Station:
+from app.entities.entity import Entity
+
+
+class Station(Entity):
     """Parent class for Cities, Businesses, and Depots.
 
     Binds a graph node to a visual avatar, providing a named location
@@ -27,6 +30,7 @@ class Station:
             ValueError: If node is not a Node instance.
             ValueError: If avatar is not an Avatar instance.
         """
+        super().__init__()
         from app.core.node_graph import Node
         from app.avatars.avatar import Avatar
 

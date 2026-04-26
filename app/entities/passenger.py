@@ -9,7 +9,10 @@ board valid trains, and pay a fare upon reaching their destination.
 import names
 
 
-class Passenger:
+from app.entities.entity import Entity
+
+
+class Passenger(Entity):
     """A traveller generated at a city with a target destination city.
 
     Passengers are spawned by cities and assigned a destination reachable
@@ -35,8 +38,10 @@ class Passenger:
         """
         from app.entities.city import City
 
+        super().__init__()
         if isinstance(location, City):
-            self._id = location.assign__id("Passenger")
+            self.id = location.assign_id("Passenger")
+            self.owner = location.owner
             self._location = location
         else:
             raise ValueError("location must be a City object")
