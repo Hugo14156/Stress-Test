@@ -1,5 +1,5 @@
 """
-Defines the EMD E9 locomotive avatar, including its static and live specifications.
+Defines the SNCF Class BB 66600 locomotive avatar, including its static and live specifications.
 
 Includes calculation methods for max speed, acceleration, and deceleration.
 
@@ -13,9 +13,9 @@ from app.avatars.train_avatar import TrainAvatar
 from pathlib import Path
 
 
-class EMD_E9(TrainAvatar):
+class BB_66600(TrainAvatar):
     """
-    A class to represent the EMD E9 locomotive.
+    A class to represent the SNCF Class BB 66600 locomotive.
 
     Attributes:
         surface: A pygame Surface object representing the visual appearance of the locomotive.
@@ -28,7 +28,7 @@ class EMD_E9(TrainAvatar):
     # Note to self: we may remove some of the attributes from the docstring since they are private
     def __init__(self):
         """
-        Initialize the specifications of the EMD E9 locomotive, including its surface representation and physical properties.
+        Initialize the specifications of the SNCF Class BB 66600 locomotive, including its surface representation and physical properties.
 
         Args: nothing
 
@@ -40,7 +40,7 @@ class EMD_E9(TrainAvatar):
             / "assets"
             / "sprites"
             / "trains"
-            / "EMD_9.png"
+            / "BB_66600.png"
         )
         self.surface = pygame.Surface((30, 15), pygame.SRCALPHA)
         scale = 30
@@ -58,8 +58,8 @@ class EMD_E9(TrainAvatar):
         # self.surface.fill((255, 0, 0))
         # pygame.draw.rect(self.surface, (0, 0, 0), self.surface.get_rect(), 3)
 
-        self._mass = 143000  # in kg
-        self._power_output = 1790000  # in watts
-        self._year = 1954
+        self._mass = 64410  # in kg
+        self._power_output = 1100000  # in watts
+        self._year = 1960
         self._power_type = "Diesel-electric"
         self._condition_rating = 0.004
