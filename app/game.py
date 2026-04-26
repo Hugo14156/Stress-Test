@@ -2,6 +2,7 @@
 
 import os
 import tkinter as tk
+from app.avatars.trains.EMD_E8 import EMD_E8
 import pygame
 from app.player import Player
 from app.core.node_graph import Node, Edge, Graph

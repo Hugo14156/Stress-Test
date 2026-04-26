@@ -173,6 +173,7 @@ class Train:
             float: The braking distance in world units at the current speed.
         """
         return ((self._speed**2) / self._deceleration) / 2
+        # need to fix since deceleration is piecewise
 
     def update_condition(self, dt):
         if self.status == "Running" or self.status == "Navigating":

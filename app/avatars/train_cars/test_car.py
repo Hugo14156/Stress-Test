@@ -22,7 +22,7 @@ class TestCar:
         self.surface = pygame.Surface((20, 15), pygame.SRCALPHA)
         self.surface.fill((255, 0, 0))
         pygame.draw.rect(self.surface, (0, 0, 0), self.surface.get_rect(), 3)
-        self.mass = 50000  # in kg
+        self.mass = 50000 # in kg
 
     def rotate(self, world_position, angle):
         """Rotate the car surface to face the given angle at the given world position.
