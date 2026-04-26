@@ -10,6 +10,47 @@ import math
 
 
 # ---------------------------------------------------------------------------
+# Lightweight client-side stubs — used for rendering only, no simulation
+# ---------------------------------------------------------------------------
+
+class _NetworkTrain:
+    """Minimal train stand-in on the client — holds position and avatar only."""
+
+    def __init__(self, train_id: str):
+        from app.avatars.trains.test_train import TestTrain
+        self.id = train_id
+        self.owner = None
+        self._position = None
+        self._network_angle = 0.0
+        self.avatar = TestTrain()
+        self.cars: list = []
+
+    def get_position(self):
+        return self._position
+
+    def get_angle(self) -> float:
+        return self._network_angle
+
+
+class _NetworkCar:
+    """Minimal car stand-in on the client — holds position and avatar only."""
+
+    def __init__(self, car_id: str):
+        from app.avatars.train_cars.test_car import TestCar
+        self.id = car_id
+        self.owner = None
+        self._position = None
+        self._network_angle = 0.0
+        self.avatar = TestCar()
+
+    def get_position(self):
+        return self._position
+
+    def get_angle(self) -> float:
+        return self._network_angle
+
+
+# ---------------------------------------------------------------------------
 # Server -> Client: serialize game state into packet dicts
 # ---------------------------------------------------------------------------
 
@@ -80,9 +121,9 @@ def _serialize_city(city) -> dict:
 
 def _serialize_depot(depot) -> dict:
     return {
-        "id": getattr(depot, "id", "dep_0"),
-        "x": depot._position[0],
-        "y": depot._position[1],
+        "id": depot.id,
+        "x": depot.center_node.position[0],
+        "y": depot.center_node.position[1],
     }
 
 
@@ -94,7 +135,11 @@ def _serialize_line(line, game) -> dict:
 
 def _serialize_train_static(train) -> dict:
     line_id = getattr(train.line, "id", None) if train.line else None
-    return {"id": train.id, "line_id": line_id}
+    return {
+        "id": train.id,
+        "line_id": line_id,
+        "cars": [car.id for car in train.cars],
+    }
 
 
 def _serialize_train_position(train) -> dict:
@@ -115,8 +160,8 @@ def _find_station_id(node, game) -> str:
         if city._node is node:
             return city.id
     for depot in getattr(game, "depots", []):
-        if depot._node is node:
-            return getattr(depot, "id", "dep_0")
+        if depot.center_node is node:
+            return depot.id
     return f"nd_{game.nodes.index(node)}" if node in game.nodes else "unknown"
 
 
@@ -158,16 +203,46 @@ def apply_tick(data: dict, game) -> bool:
 
 def apply_map(data: dict, game):
     """
-    Rebuild static game state from a map or resync packet.
+    Rebuild client-side game state from a map or resync packet.
 
-    Does not reconstruct full simulation objects — only stores the raw
-    data needed for client-side rendering. Full reconstruction requires
-    avatar/asset lookup which is handled by the caller.
+    Creates lightweight Node, Edge, and stub Train/Car objects so the
+    existing render stack methods work without modification.
     """
-    game._network_tracks = data.get("tracks", [])
-    game._network_cities = data.get("cities", [])
-    game._network_depots = data.get("depots", [])
-    game._network_lines = data.get("lines", [])
-    game._network_trains = data.get("trains", [])
+    from app.core.node_graph import Node, Edge
+
+    # Clear existing client-side state
+    game.nodes.clear()
+    game.edges.clear()
+    game.trains.clear()
+
+    # Build id->Node map so tracks can look up their endpoints
+    node_by_id: dict[str, Node] = {}
+
+    for city_data in data.get("cities", []):
+        node = Node((city_data["x"], city_data["y"]))
+        node.id = city_data["id"]
+        game.nodes.append(node)
+        node_by_id[city_data["id"]] = node
+
+    for depot_data in data.get("depots", []):
+        node = Node((depot_data["x"], depot_data["y"]))
+        node.id = depot_data["id"]
+        game.nodes.append(node)
+        node_by_id[depot_data["id"]] = node
+
+    for track_data in data.get("tracks", []):
+        node_a = node_by_id.get(track_data["station_a"])
+        node_b = node_by_id.get(track_data["station_b"])
+        if node_a and node_b:
+            edge = Edge(node_a, node_b)
+            edge.id = track_data["id"]
+            game.edges.append(edge)
+
+    for train_data in data.get("trains", []):
+        stub = _NetworkTrain(train_data["id"])
+        for car_id in train_data.get("cars", []):
+            stub.cars.append(_NetworkCar(car_id))
+        game.trains.append(stub)
+
     if "tick" in data:
         game._last_tick = data["tick"]

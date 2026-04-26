@@ -39,14 +39,19 @@ class Game:
     >>> game = Game()
     """
 
-    def __init__(self):
+    def __init__(self, headless: bool = False):
         """
         Initialize a new Game instance.
 
         Loads configuration if available; otherwise falls back to default
         settings. Initializes core game containers such as nodes, edges, trains,
         and lines.
+
+        Args:
+            headless: If True, skip display/window initialisation. Used by the
+                      server which runs without a screen.
         """
+        self._headless = headless
         self._fps = None
         self._local_player = None
         self._run_type = None
@@ -56,8 +61,11 @@ class Game:
         self.trains = []
         self.lines = []
         self.depots = []
+        self.cities = []
         self.last_node = None
         self.action = "Normal"
+        self._remote_cursors: dict = {}
+        self._last_tick: int = 0
         if not self._load_config():
             self._set_default_configs()
 
@@ -81,20 +89,22 @@ class Game:
         player and a test train depot.
         """
         self._fps = 60
-        self._run_type = "client"
         local_player_name = str(os.getlogin())
-        root = tk.Tk()
-        root.withdraw()
-        self._resolution = (
-            root.winfo_screenwidth(),
-            root.winfo_screenheight(),
-        )
-        # self._resolution = (
-        #     1280,
-        #     720,
-        # )
-        root.quit()
-        self._local_player = Player(self, local_player_name, (255, 0, 0))
+
+        if self._headless:
+            self._run_type = "server"
+            self._resolution = (1280, 720)
+            self._local_player = None
+        else:
+            self._run_type = "client"
+            root = tk.Tk()
+            root.withdraw()
+            self._resolution = (
+                root.winfo_screenwidth(),
+                root.winfo_screenheight(),
+            )
+            root.quit()
+            self._local_player = Player(self, local_player_name, (255, 0, 0))
 
     def run_game(self):
         """
@@ -246,6 +256,7 @@ class Game:
             The newly created node.
         """
         new_node = Node(position)
+        new_node.id = f"nd_{len(self.nodes)}"
         self.nodes.append(new_node)
         return new_node
 
@@ -267,6 +278,7 @@ class Game:
         """
         end_node = self.place_new_node(end_node_position)
         new_edge = Edge(start_node, end_node)
+        new_edge.id = f"trk_{len(self.edges)}"
         self.edges.append(new_edge)
         return new_edge, end_node
 
@@ -296,18 +308,30 @@ class Game:
     def compile_train_render_stack(self):
         train_render_stack = []
         for train in self.trains:
-            render_info = train.avatar.rotate(
-                train.get_position(), train.location.angle
-            )
+            pos = train.get_position()
+            if pos is None:
+                continue
+            render_info = train.avatar.rotate(pos, train.get_angle())
             train_render_stack.append(
                 {"pos": render_info[1], "surface": render_info[0]}
             )
             for car in train.cars:
-                render_info = car.avatar.rotate(car.get_position(), car.location.angle)
+                car_pos = car.get_position()
+                if car_pos is None:
+                    continue
+                render_info = car.avatar.rotate(car_pos, car.get_angle())
                 train_render_stack.append(
                     {"pos": render_info[1], "surface": render_info[0]}
                 )
         return train_render_stack
+
+    def compile_cursor_render_stack(self):
+        stack = []
+        for cursor_id, (x, y) in self._remote_cursors.items():
+            surface = pygame.Surface((12, 12), pygame.SRCALPHA)
+            pygame.draw.circle(surface, (255, 255, 0), (6, 6), 6)
+            stack.append({"pos": (x - 6, y - 6), "surface": surface})
+        return stack
 
     def compile_depot_render_stack(self):
         return [
@@ -339,6 +363,7 @@ class Game:
             self.compile_edge_render_stack()
             + self.compile_train_render_stack()
             + self.compile_depot_render_stack()
+            + self.compile_cursor_render_stack()
         )
 
         return stack

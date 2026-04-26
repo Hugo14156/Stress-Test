@@ -52,6 +52,19 @@ class Entity:
         """
         return self._position
 
+    def get_angle(self) -> float:
+        """Return the entity's current facing angle in degrees.
+
+        Returns the network-supplied angle if one has been received from
+        the server. Subclasses that compute angle locally (Train, Car)
+        should override this to fall back to their edge-derived angle
+        when no network state has been set.
+
+        Returns:
+            Angle in degrees.
+        """
+        return self._network_angle
+
     def set_network_state(self, x: float, y: float, angle: float) -> None:
         """Apply a position and angle update received from the server.
 

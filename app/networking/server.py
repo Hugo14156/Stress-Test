@@ -172,6 +172,11 @@ class WebSocketServer:
 
 if __name__ == "__main__":
     import socket
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from app.game import Game
 
     def _get_local_ip() -> str:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -179,14 +184,43 @@ if __name__ == "__main__":
             return s.getsockname()[0]
 
     async def _main() -> None:
+        # --- game setup (headless — no pygame init, no window) ---
+        game = Game(headless=True)
+
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
-            print(f"[server] {cid[:8]} -> {data.get('type')}")
+            msg_type = data.get("type")
+            if msg_type == "place_track":
+                game.place_new_edge(
+                    next((n for n in game.nodes if n.id == data["station_a"]), None),
+                    (data["x"], data["y"]),
+                )
+            elif msg_type == "place_city":
+                game.place_new_node((data["x"], data["y"]))
+                # City creation will be wired here once City placement is implemented
+            elif msg_type == "buy_train":
+                depot = next((d for d in game.depots if d.id == data["depot_id"]), None)
+                if depot:
+                    game.add_test_train()
+            elif msg_type == "assign_train":
+                train = next((t for t in game.trains if t.id == data["train_id"]), None)
+                line = next((l for l in game.lines if l.id == data["line_id"]), None)
+                if train and line:
+                    train.assign_to_line(line)
+            else:
+                print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
 
         local_ip = _get_local_ip()
         server = WebSocketServer(host="0.0.0.0", message_handler=on_message)
+        server.attach_game(game)
         await server.start()
-        await server.start_tick_loop()
+        await server.start_tick_loop(ticks_per_second=20)
         print(f"[server] listening on ws://{local_ip}:8765 — Ctrl+C to stop")
-        await server.wait_closed()
+
+        # --- headless simulation loop at 60 fps ---
+        dt = 1 / 60
+        while True:
+            for train in game.trains:
+                train.tick(dt)
+            await asyncio.sleep(dt)
 
     asyncio.run(_main())

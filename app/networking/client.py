@@ -127,32 +127,38 @@ class WebSocketClient:
 
 
 if __name__ == "__main__":
+    import queue
     import sys
     import threading
+    import pygame
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from app.networking.window import GameWindow
+    from app.game import Game
 
     server_ip = input("Enter server IP address: ").strip()
     uri = f"ws://{server_ip}:8765"
 
-    window = GameWindow(title="Multiplayer")
+    game = Game()
+    client = WebSocketClient(uri)
+    client.attach_game(game)
+
+    # Main thread puts action dicts here; networking thread drains and sends them
+    action_queue: queue.Queue = queue.Queue()
 
     async def _networking() -> None:
-        def on_message(msg: str) -> None:
-            data = json.loads(msg)
-            if data["type"] == "leave":
-                window.remove_player(data["id"])
-
-        client = WebSocketClient(uri, message_handler=on_message)
         await client.connect()
         await client.listen()
-
         while True:
-            x, y = window.get_mouse_pos()
-            tick = getattr(client._game, "_last_tick", 0) if client._game else 0
-            await client.send_cursor(x, y, tick)
+            # drain all queued actions from the main thread
+            while not action_queue.empty():
+                action = action_queue.get_nowait()
+                await client.send_action(action)
+
+            tick = game._last_tick
+            mouse_pos = pygame.mouse.get_pos()
+            world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
+            await client.send_cursor(world_pos[0], world_pos[1], tick)
             await asyncio.sleep(1 / 20)
 
     def _run_networking() -> None:
@@ -161,4 +167,85 @@ if __name__ == "__main__":
     thread = threading.Thread(target=_run_networking, daemon=True)
     thread.start()
 
-    window.run()
+    # --- pygame render loop (main thread) ---
+    pygame.init()
+    screen = pygame.display.set_mode(game.resolution)
+    pygame.display.set_caption("Stress Test")
+    clock = pygame.time.Clock()
+    state = "home"
+    clicked_last_tick = False
+
+    running = True
+    while running:
+        events = pygame.event.get()
+        keys = pygame.key.get_pressed()
+        mouse = pygame.mouse.get_pressed(num_buttons=3)
+        screen.fill("grey")
+
+        for event in events:
+            if event.type == pygame.QUIT:
+                running = False
+                break
+
+        if state == "home":
+            if game._local_player.screen.homescreen(screen, events) == "start":
+                state = "game"
+                clicked_last_tick = True
+
+        elif state == "game":
+            game._local_player.camera.move(keys)
+
+            # render only — no train.tick() calls, server drives simulation
+            render_stack = game.compile_render_stack(game.action == "PlacingTrack")
+            game._local_player.camera.draw(screen, render_stack)
+
+            toolbar_action = game._local_player.screen.top_toolbar(screen, events)
+            if toolbar_action == "pause":
+                state = "pause"
+                clicked_last_tick = True
+            elif toolbar_action == "quit":
+                state = "quit"
+                clicked_last_tick = True
+            elif toolbar_action == "place_track":
+                game.action = "PlacingTrack" if game.action != "PlacingTrack" else "Normal"
+                game.last_node = None
+                clicked_last_tick = True
+
+            if game.action == "PlacingTrack":
+                mouse_pos = pygame.mouse.get_pos()
+                world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
+                if mouse[0]:
+                    if game.last_node is None:
+                        for node in game.nodes:
+                            if node.check_collision(world_pos):
+                                game.last_node = node
+                                break
+                    elif not clicked_last_tick:
+                        # put action into queue — networking thread will send it
+                        action_queue.put({
+                            "type": "place_track",
+                            "tick": game._last_tick,
+                            "station_a": game.last_node.id,
+                            "x": world_pos[0],
+                            "y": world_pos[1],
+                        })
+                        game.last_node = None
+                        clicked_last_tick = True
+                else:
+                    clicked_last_tick = False
+
+        elif state == "pause":
+            if game._local_player.screen.pause_screen(screen, events) == "resume":
+                state = "game"
+
+        elif state == "quit":
+            result = game._local_player.screen.quit_screen(screen, events)
+            if result == "yes":
+                running = False
+            elif result == "no":
+                state = "game"
+
+        pygame.display.flip()
+        clock.tick(game._fps)
+
+    pygame.quit()
