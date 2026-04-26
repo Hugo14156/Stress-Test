@@ -68,7 +68,7 @@ class PassengerCar(Car):
                 return passengers[index:]
         return None
 
-    def unload(self):
+    def unload(self, station):
         """Disembark all passengers whose destination matches the current station.
 
         Iterates over onboard passengers and removes those who have reached
@@ -77,8 +77,7 @@ class PassengerCar(Car):
         Examples:
             >>> unload()
         """
-        location = self.train.location
         for passenger in self.passengers:
-            if passenger.destination == location:
-                passenger.disembark(location)
+            if passenger.destination == station:
+                passenger.disembark(station)
                 self.passengers.remove(passenger)

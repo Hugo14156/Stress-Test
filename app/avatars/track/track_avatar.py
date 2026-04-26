@@ -1,0 +1,56 @@
+from pathlib import Path
+import pygame
+from app.avatars.avatar import Avatar
+import math
+
+
+class TrackAvatar(Avatar):
+
+    def __init__(self, length):
+        super().__init__()
+        self.image_path = (
+            Path(__file__).resolve().parents[3]
+            / "assets"
+            / "sprites"
+            / "track"
+            / "track.png"
+        )
+        self.scale = 60
+        self.length = length
+        self.track_sprite = None
+        self.full_surface = None
+        self.placing_surface = None
+        self.placing_color = (0, 255, 0)
+        self.make_full_surface()
+        self.make_placing_surface()
+
+    def make_full_surface(self):
+        track_sprite = pygame.image.load(str(self.image_path)).convert_alpha()
+        scaled_size = (
+            track_sprite.get_width() // self.scale,
+            track_sprite.get_height() // self.scale,
+        )
+        track_sprite = pygame.transform.smoothscale(track_sprite, scaled_size)
+        tile_count = math.ceil(self.length / track_sprite.get_width()) + 1
+        self.full_surface = pygame.Surface(
+            (self.length, track_sprite.get_height()), pygame.SRCALPHA
+        )
+        for i in range(1, tile_count + 1):
+            sprite_rect = track_sprite.get_rect(
+                center=(
+                    (track_sprite.get_width() // 2) * i,
+                    track_sprite.get_height() // 2,
+                )
+            )
+            self.full_surface.blit(track_sprite, sprite_rect)
+        self.track_sprite = track_sprite
+
+    def make_placing_surface(self):
+        self.placing_surface = pygame.Surface(
+            (self.length, self.track_sprite.get_height()), pygame.SRCALPHA
+        )
+        self.placing_surface.fill(self.placing_color)
+
+    def change_length_for_placing(self, new_length):
+        self.length = new_length
+        self.make_placing_surface()

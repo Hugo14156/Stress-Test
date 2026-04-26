@@ -42,8 +42,8 @@ class Car:
             leader: The preceding vehicle (train or car) to maintain spacing behind.
         """
         distance_offset = (
-            self.avatar.surface.get_width() / 2
-            + leader.avatar.surface.get_width() / 2
+            self.avatar.surface.get_width() // 2
+            + leader.avatar.surface.get_height() // 2
             + 0.1
         )
         self._t_delay = distance_offset / self._location.length
@@ -76,13 +76,13 @@ class Car:
         else:
             self._t += self.train.bound * self.train.speed * dt / self._location.length
             if self._t > 1.0:
-                self._arrive_at(self._location.end)
+                self._arrive_at(leader)
                 self.find_t_delay(leader)
             elif self._t < 0.0:
-                self._arrive_at(self._location.start)
+                self._arrive_at(leader)
                 self.find_t_delay(leader)
 
-    def _arrive_at(self, node):
+    def _arrive_at(self, leader):
         """Transition the car onto the next track segment upon reaching a node.
 
         Queries the train's line for the next edge from the given node and
@@ -91,6 +91,9 @@ class Car:
         Args:
             node: The node (station or junction) the car has just reached.
         """
-        new_edge, new_bound = self.train._line.next_edge(node, self.train._bound)
+        new_edge = leader.location
         self._location = new_edge
-        self._t = 0 if new_bound == 1 else 1
+
+    @property
+    def location(self):
+        return self._location

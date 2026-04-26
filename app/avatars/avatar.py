@@ -17,8 +17,6 @@ class Avatar:
 
     def __init__(self):
         """Initialise the avatar with default asset folder paths and a null surface."""
-        self._parent_folder_path = ["assets, sprites"]
-        self._local_folder_path = []
         self.surface = None
 
     def rotate(self, world_position, angle):
