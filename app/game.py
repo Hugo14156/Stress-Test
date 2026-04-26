@@ -2,6 +2,7 @@
 
 import os
 import tkinter as tk
+from app.avatars.trains.EMD_E8 import EMD_E8
 import pygame
 import math
 from app.player import Player

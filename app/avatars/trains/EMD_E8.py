@@ -1,8 +1,7 @@
 """
-Test train visual component for debugging train movement and physics.
+Defines the EMD E8 locomotive avatar, including its static and live specifications.
 
-Provides a simple coloured rectangle sprite with stub physics values used
-during development to verify speed, acceleration, and rotation behaviour.
+Includes calculation methods for max speed, acceleration, and deceleration.
 """
 
 # pylint: disable=no-member
