@@ -2,6 +2,7 @@ import heapq
 import pygame
 from typing import Optional
 import math
+from app.avatars.track.track_avatar import TrackAvatar
 
 
 class Node:
@@ -15,7 +16,7 @@ class Node:
         edges: a list containing the edges attatched to the node
     """
 
-    def __init__(self, position, reference=None, edges=[]):
+    def __init__(self, position, reference=None):
         """
         Initializes the node and node information
 
@@ -28,10 +29,17 @@ class Node:
         """
         self.reference = reference
         self.position = position
-        self.render_position = (position[0] - 5, position[1] - 5)
+        self.render_position = (position[0] - 20, position[1] - 20)
         self.edges = []
-        self.surface = pygame.Surface((5 * 2, 5 * 2), pygame.SRCALPHA)
-        pygame.draw.circle(self.surface, (255, 0, 0), (5, 5), 5)
+        self.avatar = None
+        self.surface = pygame.Surface((20 * 2, 20 * 2), pygame.SRCALPHA)
+        pygame.draw.circle(self.surface, (255, 255, 255), (20, 20), 20)
+
+    def check_collision(self, position):
+        dx = position[0] - self.position[0]
+        dy = position[1] - self.position[1]
+        distance = math.hypot(dx, dy)  # Euclidean distance
+        return distance <= 20
 
     def add_edge(self, new_edge):
         """
@@ -44,21 +52,6 @@ class Node:
         """
         if new_edge not in self.edges:
             self.edges.append(new_edge)
-
-    # def __repr__(self):
-    # """
-    # Define the representation of the node instance as its position
-
-    # Args:
-    #    none
-
-    # Returns:
-    #    A string containing the coordinates of the node
-    # """
-
-    # return f"{self.position}"
-
-    # unwanted functionality. commented out if future use is needed
 
 
 class Edge:
@@ -95,8 +88,9 @@ class Edge:
         start_node.add_edge(self)
         end_node.add_edge(self)
         self.angle = self.angle_between_points()
-        self.surface = pygame.Surface((self.length, 10), pygame.SRCALPHA)
-        self.surface.fill((255, 0, 0))
+        self.avatar = TrackAvatar(self.length)
+        # self.surface = pygame.Surface((self.length, 10), pygame.SRCALPHA)
+        # self.surface.fill((255, 0, 0))
         self.surface, self.render_position = self.rotate()
 
     def angle_between_points(self):
@@ -136,9 +130,9 @@ class Edge:
             tuple[pygame.Surface, tuple[int, int]]: The rotated surface and the
                 top-left position to blit it at, preserving the train's visual centre.
         """
-        rotated_image = pygame.transform.rotate(self.surface, self.angle)
+        rotated_image = pygame.transform.rotate(self.avatar.full_surface, self.angle)
         new_rect = rotated_image.get_rect(
-            center=self.surface.get_rect(
+            center=self.avatar.full_surface.get_rect(
                 topleft=(
                     self.world_position[0] - self.length // 2,
                     self.world_position[1] - 10 // 2,

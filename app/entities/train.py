@@ -180,7 +180,6 @@ class Train:
             self.condition -= self._avatar.update_condition(dt)
         elif self.status == "Maintaining":
             self.condition += 0.1 * dt
-        print(self.condition)
 
     def _move_along_segment(self, dt):
         """Advance the train and all its cars along the current track segment.
@@ -192,6 +191,7 @@ class Train:
         Args:
             dt (float): Delta time in seconds since the last frame.
         """
+        self._calculate_movement_statistics()
         self._t += self._bound * self._speed * dt / self._location.length
         for index, car in enumerate(self._cars):
             if index == 0:
@@ -245,7 +245,6 @@ class Train:
         Args:
             node (Node): The node the train has just reached.
         """
-        print(self.condition)
         if self.status == "Running":
             self._location.remove_train(self)
             if node in self.line.stations:
@@ -283,8 +282,8 @@ class Train:
     def _calculate_movement_statistics(self):
         """Derive max speed, acceleration, and deceleration from the avatar and consist."""
         self._max_speed = self._avatar.get_max_speed(self._cars)
-        self._acceleration = self._avatar.get_acceleration(self.speed, self._cars)
-        self._deceleration = self._avatar.get_deceleration(self.speed, self._cars)
+        self._acceleration = self._avatar.get_acceleration(self._speed, self._cars)
+        self._deceleration = self._avatar.get_deceleration(self._speed, self._cars)
 
     def _arrive_at_station(self, node):
         """Handle the train arriving at a main station node.

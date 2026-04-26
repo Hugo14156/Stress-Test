@@ -1,5 +1,4 @@
 from app.view.camera import Camera
-from app.core.node_graph import Graph
 from app.view.screens import Screens
 
 
@@ -11,6 +10,7 @@ class Player:
         self.camera = Camera(self._game.resolution[0], self._game.resolution[1])
         self.screen = Screens(self._game.resolution[0], self._game.resolution[1])
         self.depots = []
+        self.lines = []
         self._balance = 0.0
         self.color = color
 

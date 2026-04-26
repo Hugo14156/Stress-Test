@@ -42,8 +42,8 @@ class Car:
             leader: The preceding vehicle (train or car) to maintain spacing behind.
         """
         distance_offset = (
-            self.avatar.surface.get_width() / 2
-            + leader.avatar.surface.get_width() / 2
+            self.avatar.surface.get_width() // 2
+            + leader.avatar.surface.get_height() // 2
             + 0.1
         )
         self._t_delay = distance_offset / self._location.length

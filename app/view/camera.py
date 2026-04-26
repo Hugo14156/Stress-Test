@@ -26,8 +26,8 @@ class Camera:
 
         self.zoom = 1.0
         self.zoom_speed = 0.025
-        self.min_zoom = 0.5
-        self.max_zoom = 2.0
+        self.min_zoom = 0.25
+        self.max_zoom = 1.5
 
     def move(self, keys):
         """

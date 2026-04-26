@@ -13,6 +13,8 @@ from app.entities.cargo_car import CargoCar
 from app.avatars.train_cars.test_car import TestCar
 from app.entities.train_depot import TrainDepot
 from app.avatars.trains.test_train import TestTrain
+from app.avatars.trains.EMD_E8 import EMD_E8
+from app.avatars.trains.EMD_E9 import EMD_E9
 
 
 class Game:
@@ -54,6 +56,8 @@ class Game:
         self.trains = []
         self.lines = []
         self.depots = []
+        self.last_node = None
+        self.action = "Normal"
         if not self._load_config():
             self._set_default_configs()
 
@@ -85,10 +89,10 @@ class Game:
             root.winfo_screenwidth(),
             root.winfo_screenheight(),
         )
-        self._resolution = (
-            1280,
-            720,
-        )
+        # self._resolution = (
+        #     1280,
+        #     720,
+        # )
         root.quit()
         self._local_player = Player(self, local_player_name, (255, 0, 0))
 
@@ -112,27 +116,29 @@ class Game:
         running = True
 
         self.place_new_depot(self._local_player, (100, 100))
-        self.place_new_edge(self.nodes[-1], (400, 0))
-        self.place_new_edge(self.nodes[-1], (400, 600))
-        self.place_new_edge(self.nodes[-1], (-400, 600))
-        self.place_new_edge(self.nodes[-1], (-200, 400))
-        self.place_new_edge(self.nodes[-1], (0, 0))
-        self.make_new_line([self.nodes[3], self.nodes[-1]])
-        self.add_test_train()
+        # self.place_new_edge(self.nodes[-1], (400, 0))
+        # self.place_new_edge(self.nodes[-1], (400, 600))
+        # self.place_new_edge(self.nodes[-1], (-400, 600))
+        # self.place_new_edge(self.nodes[-1], (-200, 400))
+        # self.place_new_edge(self.nodes[-1], (0, 0))
+        # self.make_new_line([self.nodes[3], self.nodes[-1]])
+        # self.add_test_train()
 
-        self.trains[0].assign_to_line(self.lines[0])
+        # self.trains[0].assign_to_line(self.lines[0])
 
         clicked_last_tick = False
+
         while running:
             events = pygame.event.get()
             keys = pygame.key.get_pressed()
             mouse = pygame.mouse.get_pressed(num_buttons=3)
 
+            screen.fill("grey")
+
             for event in events:
                 if event.type == pygame.QUIT:
                     running = False
-
-            screen.fill("grey")
+                    break
 
             if state == "home":
                 if self._local_player.screen.homescreen(screen, events) == "start":
@@ -140,31 +146,48 @@ class Game:
                     clicked_last_tick = True
 
             elif state == "game":
-                if mouse[0]:
-                    if not clicked_last_tick:
-                        new_node_pos = pygame.mouse.get_pos()
-                        new_node_world_pos = self._local_player.camera.screen_to_world(
-                            new_node_pos[0], new_node_pos[1]
-                        )
-                        if len(self.nodes) == 0:
-                            self.place_new_node(new_node_world_pos)
-                        else:
-                            self.place_new_edge(self.nodes[-1], new_node_world_pos)
-                        clicked_last_tick = True
-                else:
-                    clicked_last_tick = False
+                self._local_player.camera.move(keys)
                 for train in self.trains:
                     train.tick(1 / self._fps)
-                self._local_player.camera.move(keys)
-                screen.fill("grey")
-                render_stack = self.compile_render_stack()
+                render_stack = self.compile_render_stack(self.action == "PlacingTrack")
                 self._local_player.camera.draw(screen, render_stack)
 
-                if self._local_player.screen.top_toolbar(screen, events) == "pause":
+                toolbar_action = self._local_player.screen.top_toolbar(screen, events)
+                if toolbar_action == "pause":
                     state = "pause"
-                elif self._local_player.screen.top_toolbar(screen, events) == "quit":
+                    clicked_last_tick = True
+                    continue
+                elif toolbar_action == "quit":
+                    clicked_last_tick = True
                     state = "quit"
-
+                    continue
+                elif toolbar_action == "place_track" and self.action != "PlacingTrack":
+                    self.action = "PlacingTrack"
+                    clicked_last_tick = True
+                    continue
+                elif toolbar_action == "place_track" and self.action == "PlacingTrack":
+                    self.action = "Normal"
+                    clicked_last_tick = True
+                    self.last_node = None
+                    continue
+                if self.action == "PlacingTrack":
+                    mouse_pos = pygame.mouse.get_pos()
+                    world_mouse_pos = self._local_player.camera.screen_to_world(
+                        mouse_pos[0], mouse_pos[1]
+                    )
+                    if mouse[0]:
+                        if self.last_node is None:
+                            for node in self.nodes:
+                                if node.check_collision(world_mouse_pos):
+                                    self.last_node = node
+                                    break
+                        elif not clicked_last_tick:
+                            _, self.last_node = self.place_new_edge(
+                                self.last_node, world_mouse_pos
+                            )
+                            clicked_last_tick = True
+                    else:
+                        clicked_last_tick = False
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
                 if self._local_player.screen.pause_screen(screen, events) == "resume":
@@ -202,8 +225,7 @@ class Game:
         edge : Edge
             The edge where the train will be placed.
         """
-        new_train = Train(self.test_depot, [], EMD_E8(), self._local_player)
-        new_train._location = self.edges[0]
+        new_train = Train(self.depots[0], [], EMD_E9(), self._local_player)
         new_train.add_cars(
             [CargoCar(new_train, TestCar(), self.depots[0]) for i in range(5)]
         )
@@ -247,6 +269,9 @@ class Game:
         new_edge = Edge(start_node, end_node)
         self.edges.append(new_edge)
         return new_edge, end_node
+
+    def plan_new_edge():
+        pass
 
     def place_new_depot(self, player, position):
         new_depot_center_node = self.place_new_node(position)
@@ -296,7 +321,7 @@ class Game:
             for depot in self.depots
         ]
 
-    def compile_render_stack(self):
+    def compile_render_stack(self, placing_track):
         """
         Build a list of drawable objects for the current frame.
 
@@ -307,12 +332,15 @@ class Game:
             - ``pos``: world‑space position
             - ``surface``: pygame.Surface to draw
         """
-        stack = (
-            self.compile_node_render_stack()
-            + self.compile_edge_render_stack()
+        stack = []
+        if placing_track:
+            stack = self.compile_node_render_stack()
+        stack += (
+            self.compile_edge_render_stack()
             + self.compile_train_render_stack()
             + self.compile_depot_render_stack()
         )
+
         return stack
 
     @property
