@@ -387,8 +387,12 @@ class Game:
     def compile_train_render_stack(self):
         train_render_stack = []
         for train in self.trains:
-            render_info = train.avatar.rotate(
-                train.get_position(), train.location.angle
+            render_info = (
+                train.avatar.rotate(train.get_position(), train.location.angle)
+                if train.bound == 1
+                else train.avatar.rotate(
+                    train.get_position(), train.location.angle - 180
+                )
             )
             train_render_stack.append(
                 {"pos": render_info[1], "surface": render_info[0]}
