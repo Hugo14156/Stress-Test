@@ -38,7 +38,8 @@ class Node:
     def check_collision(self, position):
         dx = position[0] - self.position[0]
         dy = position[1] - self.position[1]
-        distance = math.hypot(dx, dy)  # Euclidean distance
+        distance = math.hypot(dx, dy)
+        print(distance)  # Euclidean distance
         return distance <= 20
 
     def add_edge(self, new_edge):

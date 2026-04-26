@@ -3,6 +3,7 @@
 import os
 import tkinter as tk
 import pygame
+import math
 from app.player import Player
 from app.core.node_graph import Node, Edge, Graph
 from app.entities.line import Line
@@ -55,6 +56,7 @@ class Game:
         self.trains = []
         self.lines = []
         self.depots = []
+        self.cost_per_unit_rail = 2
         self.last_node = None
         self.action = "Normal"
         if not self._load_config():
@@ -131,7 +133,10 @@ class Game:
             events = pygame.event.get()
             keys = pygame.key.get_pressed()
             mouse = pygame.mouse.get_pressed(num_buttons=3)
-
+            mouse_pos = pygame.mouse.get_pos()
+            world_mouse_pos = self._local_player.camera.screen_to_world(
+                mouse_pos[0], mouse_pos[1]
+            )
             screen.fill("grey")
 
             for event in events:
@@ -170,21 +175,48 @@ class Game:
                     self.last_node = None
                     continue
                 if self.action == "PlacingTrack":
-                    mouse_pos = pygame.mouse.get_pos()
-                    world_mouse_pos = self._local_player.camera.screen_to_world(
-                        mouse_pos[0], mouse_pos[1]
-                    )
+                    if self.last_node is not None:
+                        line_start = self._local_player.camera.world_to_screen(
+                            self.last_node.position[0], self.last_node.position[1]
+                        )
+                        length = math.sqrt(
+                            ((self.last_node.position[0] - world_mouse_pos[0]) ** 2)
+                            + ((self.last_node.position[1] - world_mouse_pos[1]) ** 2)
+                        )
+                        pygame.draw.line(
+                            screen,
+                            (
+                                (255, 0, 0)
+                                if self.cost_per_unit_rail * length
+                                >= self._local_player._balance
+                                else (0, 255, 0)
+                            ),
+                            line_start,
+                            mouse_pos,
+                            5,
+                        )
                     if mouse[0]:
-                        if self.last_node is None:
+                        if self.last_node is None and not clicked_last_tick:
                             for node in self.nodes:
+                                print(node.check_collision(world_mouse_pos))
                                 if node.check_collision(world_mouse_pos):
                                     self.last_node = node
-                                    break
+                                break
                         elif not clicked_last_tick:
+                            length = math.sqrt(
+                                ((self.last_node.position[0] - world_mouse_pos[0]) ** 2)
+                                + (
+                                    (self.last_node.position[1] - world_mouse_pos[1])
+                                    ** 2
+                                )
+                            )
+                            self._local_player._balance -= (
+                                self.cost_per_unit_rail * length
+                            )
                             _, self.last_node = self.place_new_edge(
                                 self.last_node, world_mouse_pos
                             )
-                            clicked_last_tick = True
+                        clicked_last_tick = True
                     else:
                         clicked_last_tick = False
             elif state == "pause":
@@ -268,9 +300,6 @@ class Game:
         new_edge = Edge(start_node, end_node)
         self.edges.append(new_edge)
         return new_edge, end_node
-
-    def plan_new_edge():
-        pass
 
     def place_new_depot(self, player, position):
         new_depot_center_node = self.place_new_node(position)
