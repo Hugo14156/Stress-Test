@@ -467,7 +467,7 @@ class Screens:
         pygame.draw.rect(screen, (40, 40, 40), popup, 4, border_radius=18)
 
         title = self.title_font.render("Purchase Complete!", True, (20, 20, 20))
-        screen.blit(title, title.get_rect(center=(popup.centerx, popup.y + 220)))
+        screen.blit(title, title.get_rect(center=(popup.centerx, popup.y + 280)))
 
     def player_money(self, screen, money):
         """
