@@ -36,6 +36,19 @@ class Node:
         pygame.draw.circle(self.surface, (255, 255, 255), (20, 20), 20)
 
     def check_collision(self, position):
+        """
+        Determine if a given (x, y) point is within the node's circular boundary.
+
+        This method calculates the straight-line (Euclidean) distance between 
+        the node's center and the target position. It returns True if that 
+        distance is less than or equal to the node's radius (20 units).
+
+        Args:
+            position (tuple[float, float]): The (x, y) coordinates to check.
+
+        Returns:
+            a boolean that is True if the position overlaps with the node and False otherwise.
+        """
         dx = position[0] - self.position[0]
         dy = position[1] - self.position[1]
         distance = math.hypot(dx, dy)  # Euclidean distance
@@ -142,6 +155,23 @@ class Edge:
         return (rotated_image, new_rect.topleft)
 
     def give_position(self, portion_traveled):
+        """
+        Calculate the (x, y) world coordinates for a given progress along the edge.
+
+        This method performs linear interpolation between the start and end nodes.
+        It includes safety clamping to ensure the returned position never exceeds 
+        the physical bounds of the edge.
+
+        Args:
+            portion_traveled (float): A value between 0.0 (start) and 1.0 (end) 
+                representing how far along the edge to calculate the position.
+
+        Returns:
+            tuple[float, float]: The (x, y) coordinates of the point.
+
+        Raises:
+            ValueError: If portion_traveled is not a numeric type.
+        """
         if isinstance(portion_traveled, (int, float)):
             if portion_traveled < 0:
                 portion_traveled = 0
@@ -155,10 +185,26 @@ class Edge:
             raise ValueError("portion_traveled must be an integer or float")
 
     def add_train(self, new_train):
+        """
+        Add a train to the edge's list of trains (if it isn't already in the list)
+
+        Args:
+            new_train: a train to be added to the edge's list of trains
+
+        Returns: nothing
+        """
         if new_train not in self.trains:
             self.trains.append(new_train)
 
     def remove_train(self, target_train):
+        """
+        Remove a train to the edge's list of trains (if it is in the list)
+
+        Args:
+            target_train: the train to be removed from the edge's list of trains
+
+        Returns: nothing
+        """
         if target_train in self.trains:
             self.trains.remove(target_train)
 

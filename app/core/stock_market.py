@@ -1,5 +1,5 @@
 """
-Provides functionality for the stock market, including buying and selling stocks, stock
+Provides functionality for the stock market, including buying stocks, stock
 prices, and a check for ownership.
 """
 
@@ -8,7 +8,11 @@ class Stock:
     A class used for the stock market function of the game.
 
     Attributes:
-
+        net_worth: a list of doubles representing the net worth of each player
+        cash: a list of doubles representing the amount of cash each player had on hand
+        ownership: a list of lists representing how much many stocks each player owns of each player
+            for n players, ownership is a list of n lists of n elements. ownership[i][j] stores the
+            number of stocks player i owns of player j.
     """
 
     def __init__(self, player_finances, ownership = []):
@@ -111,7 +115,7 @@ class Stock:
             
         Returns: 
             owned_players:a list of integers representing the players that `player` has a majority stake in
-            the integer corresponds to the index of the player in player_finances and ownership
+                the integer corresponds to the index of the player in player_finances and ownership
         """
         owned_players = []
         for i in range(self._num_players):
@@ -126,9 +130,9 @@ class Stock:
         Args: nothing
 
         Returns: 
-            all_owned_players:a list of lists containing the companies of players each player has a majority stake of
-            for n players, the returned list of lists is a list of n lists. The ith list contains the indices of players whose
-            companies are owned a majority 
+            all_owned_players: a list of lists containing the companies of players each player has a majority stake of
+                for n players, the returned list of lists is a list of n lists. The ith list contains the indices of players whose
+                companies are owned a majority 
         """
 
         all_owned_players = []
