@@ -8,7 +8,15 @@ from typing import Any
 
 from websockets.asyncio.server import Server, ServerConnection, serve
 
-from app.networking.serialize import serialize_map, serialize_tick, serialize_resync, serialize_reject
+from app.networking.serialize import (
+    serialize_map,
+    serialize_tick,
+    serialize_resync,
+    serialize_reject,
+    serialize_train_add,
+    serialize_track_add,
+    serialize_line_update,
+)
 
 MessageHandler = Callable[[str, ServerConnection], Awaitable[Any] | Any]
 ConnectionHandler = Callable[[ServerConnection], Awaitable[Any] | Any]
@@ -191,9 +199,14 @@ class WebSocketServer:
             return
 
         if self._message_handler is not None:
-            result = self._message_handler(data, sender, cid)
-            if asyncio.iscoroutine(result):
-                await result
+            try:
+                result = self._message_handler(data, sender, cid)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as exc:
+                print(f"[server] action failed for {cid[:8]} {msg_type}: {exc}")
+                reject = serialize_reject(self._tick, msg_type, str(exc))
+                await self.send_to(sender, json.dumps(reject))
 
 
 if __name__ == "__main__":
@@ -234,14 +247,12 @@ if __name__ == "__main__":
         async def on_connect(websocket: ServerConnection) -> None:
             nonlocal _player_count
             pos = _DEPOT_POSITIONS[_player_count % len(_DEPOT_POSITIONS)]
-            game.place_new_depot(None, pos)
+            game.place_new_depot(None, pos, owner_id=server._client_ids[websocket])
             _player_count += 1
             # Notify already-connected clients of the new depot
             await server.broadcast_except(
                 json.dumps(serialize_resync(game, server._tick)), websocket
             )
-
-        _WORLD_ACTIONS = {"place_track", "place_city", "create_line", "toggle_station", "buy_train", "assign_train"}
 
         def latest_owned_line(owner_id: str):
             return next(
@@ -255,6 +266,7 @@ if __name__ == "__main__":
 
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
             msg_type = data.get("type")
+            packet = None
             if msg_type == "place_track":
                 start_node = next((n for n in game.nodes if n.id == data["station_a"]), None)
                 if start_node is None:
@@ -262,18 +274,77 @@ if __name__ == "__main__":
                 elif "station_b" in data:
                     end_node = next((n for n in game.nodes if n.id == data["station_b"]), None)
                     if end_node:
-                        game.place_new_edge(start_node, end_node=end_node)
+                        edge, _ = game.place_new_edge(start_node, end_node=end_node)
+                        packet = serialize_track_add(edge, game, server._tick)
                 else:
-                    game.place_new_edge(start_node, (data["x"], data["y"]))
+                    edge, _ = game.place_new_edge(start_node, (data["x"], data["y"]))
+                    packet = serialize_track_add(edge, game, server._tick)
             elif msg_type == "place_city":
                 game.place_new_city((data["x"], data["y"]))
+                packet = serialize_resync(game, server._tick)
             elif msg_type == "buy_train":
                 depot = next((d for d in game.depots if d.id == data["depot_id"]), None)
-                if depot:
-                    game.add_test_train()
+                if depot is None:
+                    await server.send_to(
+                        sender,
+                        json.dumps(
+                            serialize_reject(server._tick, msg_type, "unknown depot")
+                        ),
+                    )
+                    return
+                if getattr(depot, "owner_id", None) != cid:
+                    await server.send_to(
+                        sender,
+                        json.dumps(
+                            serialize_reject(
+                                server._tick, msg_type, "depot belongs to another player"
+                            )
+                        ),
+                    )
+                    return
+                train = game.add_test_train(depot)
+                if train:
+                    line = latest_owned_line(cid)
+                    if line is None:
+                        await server.send_to(
+                            sender,
+                            json.dumps(
+                                serialize_reject(
+                                    server._tick, msg_type, "no owned line to assign train"
+                                )
+                            ),
+                        )
+                    elif not line.stations:
+                        await server.send_to(
+                            sender,
+                            json.dumps(
+                                serialize_reject(
+                                    server._tick, msg_type, "owned line has no stations"
+                                )
+                            ),
+                        )
+                    else:
+                        try:
+                            train.assign_to_line(line)
+                        except ValueError as exc:
+                            await server.send_to(
+                                sender,
+                                json.dumps(
+                                    serialize_reject(
+                                        server._tick,
+                                        msg_type,
+                                        f"train cannot reach line: {exc}",
+                                    )
+                                ),
+                            )
+                    packet = serialize_train_add(train, server._tick)
             elif msg_type == "assign_train":
                 tid, lid = data.get("train_id"), data.get("line_id")
-                train = game.trains[-1] if tid == "latest" else next((t for t in game.trains if t.id == tid), None)
+                train = (
+                    game.trains[-1]
+                    if tid == "latest" and game.trains
+                    else next((t for t in game.trains if t.id == tid), None)
+                )
                 line = latest_owned_line(cid) if lid == "latest" else next(
                     (
                         l
@@ -283,21 +354,31 @@ if __name__ == "__main__":
                     None,
                 )
                 if train and line and line.stations:
-                    train.assign_to_line(line)
+                    try:
+                        train.assign_to_line(line)
+                    except ValueError as exc:
+                        reason = f"train cannot reach line: {exc}"
+                        await server.send_to(
+                            sender,
+                            json.dumps(serialize_reject(server._tick, msg_type, reason)),
+                        )
+                        return
+                    packet = serialize_resync(game, server._tick)
             elif msg_type == "create_line":
                 game.make_new_line([], owner_id=cid)
+                packet = serialize_line_update(game.lines[-1], game, server._tick)
             elif msg_type == "toggle_station":
                 node = next((n for n in game.nodes if n.id == data.get("node_id")), None)
                 line = latest_owned_line(cid)
                 if node and line:
                     line.toggle_station(node)
+                    packet = serialize_line_update(line, game, server._tick)
             else:
                 print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
                 return
 
-            # Broadcast fresh state to all clients after any world change
-            if msg_type in _WORLD_ACTIONS:
-                await server.broadcast(json.dumps(serialize_resync(game, server._tick)))
+            if packet is not None:
+                await server.broadcast(json.dumps(packet))
 
         local_ip = _get_local_ip()
         server = WebSocketServer(host="0.0.0.0", message_handler=on_message, on_connect=on_connect)

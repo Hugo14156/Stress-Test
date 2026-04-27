@@ -17,10 +17,11 @@ import math
 class _NetworkTrain:
     """Minimal train stand-in on the client — holds position and avatar only."""
 
-    def __init__(self, train_id: str):
+    def __init__(self, train_id: str, line_id: str | None = None):
         from app.avatars.trains.test_train import TestTrain
 
         self.id = train_id
+        self.line_id = line_id
         self.owner = None
         self._position = None
         self._network_angle = 0.0
@@ -68,10 +69,11 @@ class _NetworkCity:
 class _NetworkDepot:
     """Minimal depot stand-in on the client — holds position and avatar for rendering."""
 
-    def __init__(self, depot_id: str, node):
+    def __init__(self, depot_id: str, node, owner_id: str | None = None):
         from app.avatars.stations.depot_avatar import DepotAvatar
 
         self.id = depot_id
+        self.owner_id = owner_id
         self.center_node = node
         self.avatar = DepotAvatar(None)
 
@@ -98,9 +100,18 @@ def serialize_tick(game, tick: int, cursors: list[dict]) -> dict:
     return {
         "type": "tick",
         "tick": tick,
-        "trains": [_serialize_train_position(train) for train in game.trains],
+        "trains": [
+            entry
+            for train in game.trains
+            for entry in [_serialize_train_position(train)]
+            if entry is not None
+        ],
         "cars": [
-            _serialize_car_position(car) for train in game.trains for car in train.cars
+            entry
+            for train in game.trains
+            for car in train.cars
+            for entry in [_serialize_car_position(car)]
+            if entry is not None
         ],
         "cursors": cursors,
     }
@@ -111,11 +122,46 @@ def serialize_resync(game, tick: int) -> dict:
     data = serialize_map(game)
     data["type"] = "resync"
     data["tick"] = tick
-    data["train_positions"] = [_serialize_train_position(t) for t in game.trains]
+    data["train_positions"] = [
+        entry
+        for train in game.trains
+        for entry in [_serialize_train_position(train)]
+        if entry is not None
+    ]
     data["car_positions"] = [
-        _serialize_car_position(car) for train in game.trains for car in train.cars
+        entry
+        for train in game.trains
+        for car in train.cars
+        for entry in [_serialize_car_position(car)]
+        if entry is not None
     ]
     return data
+
+
+def serialize_train_add(train, tick: int) -> dict:
+    """Single-train update used for train purchases."""
+    return {
+        "type": "train_add",
+        "tick": tick,
+        "train": _serialize_train_static(train),
+        "train_position": _serialize_train_position(train),
+        "car_positions": [
+            entry
+            for car in train.cars
+            for entry in [_serialize_car_position(car)]
+            if entry is not None
+        ],
+    }
+
+
+def serialize_track_add(edge, game, tick: int) -> dict:
+    """Single-track update used for hot path track placement."""
+    return {"type": "track_add", "tick": tick, "track": _serialize_track(edge, game)}
+
+
+def serialize_line_update(line, game, tick: int) -> dict:
+    """Single-line update used for hot path line creation/editing."""
+    return {"type": "line_update", "tick": tick, "line": _serialize_line(line, game)}
 
 
 def serialize_reject(tick: int, action: str, reason: str) -> dict:
@@ -154,6 +200,7 @@ def _serialize_city(city) -> dict:
 def _serialize_depot(depot) -> dict:
     return {
         "id": depot.id,
+        "owner_id": getattr(depot, "owner_id", None),
         "x": depot.center_node.position[0],
         "y": depot.center_node.position[1],
     }
@@ -178,8 +225,11 @@ def _serialize_train_static(train) -> dict:
     }
 
 
-def _serialize_train_position(train) -> dict:
-    x, y = train.get_position()
+def _serialize_train_position(train) -> dict | None:
+    position = train.get_position()
+    if position is None:
+        return None
+    x, y = position
     return {
         "id": train.id,
         "x": round(x, 2),
@@ -188,8 +238,11 @@ def _serialize_train_position(train) -> dict:
     }
 
 
-def _serialize_car_position(car) -> dict:
-    x, y = car.get_position()
+def _serialize_car_position(car) -> dict | None:
+    position = car.get_position()
+    if position is None:
+        return None
+    x, y = position
     return {
         "id": car.id,
         "x": round(x, 2),
@@ -280,7 +333,7 @@ def apply_map(data: dict, game):
         node.id = depot_data["id"]
         game.nodes.append(node)
         node_by_id[depot_data["id"]] = node
-        depot = _NetworkDepot(depot_data["id"], node)
+        depot = _NetworkDepot(depot_data["id"], node, depot_data.get("owner_id"))
         node.reference = depot
         game.depots.append(depot)
 
@@ -315,7 +368,7 @@ def apply_map(data: dict, game):
         game.lines.append(line)
 
     for train_data in data.get("trains", []):
-        stub = _NetworkTrain(train_data["id"])
+        stub = _NetworkTrain(train_data["id"], train_data.get("line_id"))
         for car_id in train_data.get("cars", []):
             stub.cars.append(_NetworkCar(car_id))
         game.trains.append(stub)
@@ -331,6 +384,104 @@ def apply_map(data: dict, game):
             train._network_angle = entry.get("angle", 0.0)
 
     car_map = {car.id: car for t in game.trains for car in t.cars}
+    for entry in data.get("car_positions", []):
+        car = car_map.get(entry["id"])
+        if car:
+            car._position = (entry["x"], entry["y"])
+            car._network_angle = entry.get("angle", 0.0)
+
+
+def apply_delta(data: dict, game):
+    """Apply a small world update without rebuilding the whole client map."""
+    if "tick" in data:
+        game._last_tick = data["tick"]
+
+    msg_type = data.get("type")
+    if msg_type == "track_add":
+        _apply_track_add(data.get("track", {}), game)
+    elif msg_type == "line_update":
+        _apply_line_update(data.get("line", {}), game)
+    elif msg_type == "train_add":
+        _apply_train_add(data, game)
+
+
+def _find_node_by_id(game, node_id: str):
+    return next((node for node in game.nodes if node.id == node_id), None)
+
+
+def _apply_track_add(track_data: dict, game):
+    from app.core.node_graph import Node, Edge
+
+    if not track_data or any(edge.id == track_data.get("id") for edge in game.edges):
+        return
+
+    endpoints = []
+    for side, xk, yk in (("station_a", "ax", "ay"), ("station_b", "bx", "by")):
+        node_id = track_data.get(side)
+        node = _find_node_by_id(game, node_id)
+        if node is None and xk in track_data and yk in track_data:
+            node = Node((track_data[xk], track_data[yk]))
+            node.id = node_id
+            game.nodes.append(node)
+        endpoints.append(node)
+
+    node_a, node_b = endpoints
+    if node_a is None or node_b is None:
+        return
+
+    edge = Edge(node_a, node_b)
+    edge.id = track_data["id"]
+    game.edges.append(edge)
+
+
+def _apply_line_update(line_data: dict, game):
+    from app.entities.line import Line
+
+    if not line_data:
+        return
+
+    station_nodes = [
+        node
+        for station_id in line_data.get("stations", [])
+        for node in [_find_node_by_id(game, station_id)]
+        if node is not None
+    ]
+    line = next((line for line in game.lines if line.id == line_data.get("id")), None)
+    if line is None:
+        line = Line(None, station_nodes, owner_id=line_data.get("owner_id"))
+        line.id = line_data["id"]
+        game.lines.append(line)
+        return
+
+    line.owner_id = line_data.get("owner_id")
+    line._main_nodes = station_nodes
+    line.calculate_navigation_path()
+
+
+def _apply_train_add(data: dict, game):
+    train_data = data.get("train", {})
+    if not train_data:
+        return
+
+    train = next((train for train in game.trains if train.id == train_data.get("id")), None)
+    if train is None:
+        train = _NetworkTrain(train_data["id"], train_data.get("line_id"))
+        game.trains.append(train)
+    else:
+        train.line_id = train_data.get("line_id")
+
+    existing_cars = {car.id: car for car in train.cars}
+    train.cars = [
+        existing_cars.get(car_id) or _NetworkCar(car_id)
+        for car_id in train_data.get("cars", [])
+    ]
+
+    train_position = data.get("train_position")
+    if train_position:
+        train._position = (train_position["x"], train_position["y"])
+        train._network_angle = train_position.get("angle", 0.0)
+
+    car_map = {car.id: car for car in train.cars}
     for entry in data.get("car_positions", []):
         car = car_map.get(entry["id"])
         if car:

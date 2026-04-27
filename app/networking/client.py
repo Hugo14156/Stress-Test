@@ -8,7 +8,7 @@ from typing import Any
 
 from websockets.asyncio.client import ClientConnection, connect
 
-from app.networking.serialize import apply_tick, apply_map
+from app.networking.serialize import apply_tick, apply_map, apply_delta
 
 MessageHandler = Callable[[str], Awaitable[Any] | Any]
 
@@ -97,6 +97,12 @@ class WebSocketClient:
             elif self._game is not None:
                 apply_map(data, self._game)
 
+        elif msg_type in ("track_add", "line_update", "train_add"):
+            if self._map_queue is not None:
+                self._map_queue.put(data)
+            elif self._game is not None:
+                apply_delta(data, self._game)
+
         elif msg_type == "tick":
             if self._game is not None:
                 apply_tick(data, self._game)
@@ -122,8 +128,12 @@ class WebSocketClient:
 
     async def send(self, message: str) -> None:
         if self._connection is None:
-            raise RuntimeError("Client is not connected.")
-        await self._connection.send(message)
+            return
+        try:
+            await self._connection.send(message)
+        except Exception as exc:
+            print(f"[client] disconnected while sending: {exc}")
+            self._connection = None
 
     async def send_action(self, action: dict) -> None:
         """Send a client action packet. Caller is responsible for setting 'tick'."""
@@ -173,7 +183,7 @@ if __name__ == "__main__":
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from app.game import Game
-    from app.networking.serialize import apply_map
+    from app.networking.serialize import apply_map, apply_delta
 
     import os
 
@@ -243,14 +253,27 @@ if __name__ == "__main__":
             None,
         )
 
+    def _owned_depot():
+        return next(
+            (
+                depot
+                for depot in game.depots
+                if getattr(depot, "owner_id", None) == client.own_id
+            ),
+            None,
+        )
+
     running = True
     while running:
         # Apply any pending map/resync packets (deferred from networking thread)
-        latest_map = None
+        pending_packets = []
         while not map_queue.empty():
-            latest_map = map_queue.get_nowait()
-        if latest_map is not None:
-            apply_map(latest_map, game)
+            pending_packets.append(map_queue.get_nowait())
+        for packet in pending_packets:
+            if packet.get("type") in ("map", "resync"):
+                apply_map(packet, game)
+            else:
+                apply_delta(packet, game)
 
         events = pygame.event.get()
         keys = pygame.key.get_pressed()
@@ -263,23 +286,17 @@ if __name__ == "__main__":
                 break
             if state == "game" and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_t and game.depots:
+                    depot = _owned_depot()
+                    if depot is None:
+                        print("[client] cannot buy train: own depot not synced yet")
+                        continue
                     action_queue.put(
                         {
                             "type": "buy_train",
                             "tick": game._last_tick,
-                            "depot_id": game.depots[0].id,
+                            "depot_id": depot.id,
                         }
                     )
-                    if _latest_owned_line() is not None:
-                        action_queue.put(
-                            {
-                                "type": "assign_train",
-                                "tick": game._last_tick,
-                                "train_id": "latest",
-                                "line_id": "latest",
-                            }
-                        )
-
         if state == "home":
             if game._local_player.screen.homescreen(screen, events) == "start":
                 state = "game"
@@ -342,7 +359,6 @@ if __name__ == "__main__":
                             None,
                         )
                         if existing:
-                            game.place_new_edge(game.last_node, end_node=existing)
                             action_queue.put(
                                 {
                                     "type": "place_track",
@@ -352,7 +368,6 @@ if __name__ == "__main__":
                                 }
                             )
                         else:
-                            game.place_new_edge(game.last_node, world_pos)
                             action_queue.put(
                                 {
                                     "type": "place_track",
@@ -374,17 +389,13 @@ if __name__ == "__main__":
                 )
                 if mouse[0] and not clicked_last_tick:
                     if not made_new_line:
-                        game.make_new_line([], owner_id=client.own_id)
                         action_queue.put(
                             {"type": "create_line", "tick": game._last_tick}
                         )
                         made_new_line = True
                     else:
-                        line = _latest_owned_line()
                         for node in game.nodes:
                             if node.check_collision(world_pos):
-                                if line is not None:
-                                    line.toggle_station(node)
                                 action_queue.put(
                                     {
                                         "type": "toggle_station",

@@ -326,14 +326,15 @@ class Game:
         if self._local_player is not None:
             self._local_player.lines.append(new_line)
 
-    def add_test_train(self):
+    def add_test_train(self, depot=None):
         """Spawn a test train at the first available depot."""
         if not self.depots:
             return
-        depot = self.depots[0]
+        depot = depot or self.depots[0]
         new_train = Train(depot, [], EMD_E9(), self._local_player)
         new_train.add_cars([PassengerCar(new_train, PCar1(), depot) for i in range(5)])
         self.trains.append(new_train)
+        return new_train
 
     def place_new_node(self, position):
         """
@@ -382,14 +383,16 @@ class Game:
             self.edges.append(new_edge)
             return new_edge, end_node
 
-    def place_new_depot(self, player, position):
+    def place_new_depot(self, player, position, owner_id=None):
         new_depot_center_node = self.place_new_node(position)
         _, new_depot_entry_node = self.place_new_edge(
             new_depot_center_node, [position[0], position[1] - 100]
         )
         new_depot = TrainDepot(player, [new_depot_center_node, new_depot_entry_node])
+        new_depot.owner_id = owner_id
         new_depot_center_node.id = new_depot.id  # keep node ID in sync with entity ID
         self.depots.append(new_depot)
+        return new_depot
 
     def place_new_city(self, position):
         new_city_center_node = self.place_new_node(position)
@@ -502,9 +505,9 @@ class Game:
             stack = self.compile_node_render_stack()
         stack += (
             self.compile_edge_render_stack(making_lines)
-            + self.compile_train_render_stack()
             + self.compile_depot_render_stack()
             + self.compile_city_render_stack()
+            + self.compile_train_render_stack()
             + self.compile_cursor_render_stack()
         )
 

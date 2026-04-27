@@ -353,6 +353,10 @@ class Train(Entity):
         """str: The unique identifier for this train."""
         return self._id
 
+    @id.setter
+    def id(self, value):
+        self._id = value
+
     @property
     def player(self):
         return self._player
