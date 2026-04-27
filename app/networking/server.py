@@ -16,6 +16,15 @@ ConnectionHandler = Callable[[ServerConnection], Awaitable[Any] | Any]
 # How many ticks behind a client action is allowed to be before rejection
 MAX_TICK_AGE = 60
 
+CURSOR_COLORS = [
+    [255, 80, 80],
+    [80, 180, 255],
+    [90, 220, 120],
+    [255, 210, 80],
+    [210, 120, 255],
+    [255, 140, 70],
+]
+
 
 class WebSocketServer:
     """WebSocket server that drives the authoritative game simulation.
@@ -40,6 +49,7 @@ class WebSocketServer:
         self._clients: set[ServerConnection] = set()
         self._client_ids: dict[ServerConnection, str] = {}
         self._client_acks: dict[str, int] = {}
+        self._client_colors: dict[str, list[int]] = {}
         self._cursors: dict[str, dict] = {}
         self._server: Server | None = None
         self._tick: int = 0
@@ -86,14 +96,17 @@ class WebSocketServer:
             self._tick += 1
 
     async def send_to(self, client: ServerConnection, message: str) -> None:
-        await client.send(message)
+        try:
+            await client.send(message)
+        except Exception:
+            self._clients.discard(client)
 
     async def broadcast(self, message: str) -> None:
         if not self._clients:
             return
         await asyncio.gather(
             *(client.send(message) for client in tuple(self._clients)),
-            return_exceptions=False,
+            return_exceptions=True,
         )
 
     async def broadcast_except(self, message: str, exclude: ServerConnection) -> None:
@@ -102,7 +115,7 @@ class WebSocketServer:
             return
         await asyncio.gather(
             *(c.send(message) for c in targets),
-            return_exceptions=False,
+            return_exceptions=True,
         )
 
     def get_lag_report(self) -> dict[str, int]:
@@ -114,8 +127,13 @@ class WebSocketServer:
         self._clients.add(websocket)
         self._client_ids[websocket] = cid
         self._client_acks[cid] = self._tick
+        self._client_colors[cid] = CURSOR_COLORS[
+            (len(self._client_colors)) % len(CURSOR_COLORS)
+        ]
 
-        await websocket.send(json.dumps({"type": "id", "id": cid}))
+        await websocket.send(
+            json.dumps({"type": "id", "id": cid, "color": self._client_colors[cid]})
+        )
 
         # on_connect runs first so it can modify game state before the map is sent
         if self._on_connect is not None:
@@ -133,6 +151,7 @@ class WebSocketServer:
             self._clients.discard(websocket)
             self._client_ids.pop(websocket, None)
             self._client_acks.pop(cid, None)
+            self._client_colors.pop(cid, None)
             self._cursors.pop(cid, None)
             await self.broadcast(json.dumps({"type": "leave", "id": cid}))
             if self._on_disconnect is not None:
@@ -161,7 +180,7 @@ class WebSocketServer:
                 "x": data["x"],
                 "y": data["y"],
                 "name": data.get("name", ""),
-                "color": data.get("color", [255, 255, 0]),
+                "color": self._client_colors.get(cid, [255, 255, 0]),
             }
             return
 
@@ -224,6 +243,16 @@ if __name__ == "__main__":
 
         _WORLD_ACTIONS = {"place_track", "place_city", "create_line", "toggle_station", "buy_train", "assign_train"}
 
+        def latest_owned_line(owner_id: str):
+            return next(
+                (
+                    line
+                    for line in reversed(game.lines)
+                    if getattr(line, "owner_id", None) == owner_id
+                ),
+                None,
+            )
+
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
             msg_type = data.get("type")
             if msg_type == "place_track":
@@ -245,15 +274,23 @@ if __name__ == "__main__":
             elif msg_type == "assign_train":
                 tid, lid = data.get("train_id"), data.get("line_id")
                 train = game.trains[-1] if tid == "latest" else next((t for t in game.trains if t.id == tid), None)
-                line = game.lines[-1] if lid == "latest" else next((l for l in game.lines if l.id == lid), None)
-                if train and line:
+                line = latest_owned_line(cid) if lid == "latest" else next(
+                    (
+                        l
+                        for l in game.lines
+                        if l.id == lid and getattr(l, "owner_id", None) == cid
+                    ),
+                    None,
+                )
+                if train and line and line.stations:
                     train.assign_to_line(line)
             elif msg_type == "create_line":
-                game.make_new_line([])
+                game.make_new_line([], owner_id=cid)
             elif msg_type == "toggle_station":
                 node = next((n for n in game.nodes if n.id == data.get("node_id")), None)
-                if node and game.lines:
-                    game.lines[-1].toggle_station(node)
+                line = latest_owned_line(cid)
+                if node and line:
+                    line.toggle_station(node)
             else:
                 print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
                 return

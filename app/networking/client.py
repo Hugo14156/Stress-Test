@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from queue import Empty
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -44,6 +45,17 @@ class WebSocketClient:
     def own_id(self) -> str | None:
         return self._own_id
 
+    def _queue_latest_map(self, data: dict) -> None:
+        """Keep only the newest full-state packet waiting for the pygame thread."""
+        if self._map_queue is None:
+            return
+        while True:
+            try:
+                self._map_queue.get_nowait()
+            except Empty:
+                break
+        self._map_queue.put(data)
+
     async def connect(self) -> None:
         if self._connection is not None:
             raise RuntimeError("Client is already connected.")
@@ -76,10 +88,12 @@ class WebSocketClient:
 
         if msg_type == "id":
             self._own_id = data["id"]
+            if self._game is not None and self._game._local_player is not None:
+                self._game._local_player.id = self._own_id
 
         elif msg_type in ("map", "resync"):
             if self._map_queue is not None:
-                self._map_queue.put(data)
+                self._queue_latest_map(data)
             elif self._game is not None:
                 apply_map(data, self._game)
 
@@ -219,11 +233,24 @@ if __name__ == "__main__":
     clicked_last_tick = False
     made_new_line = False
 
+    def _latest_owned_line():
+        return next(
+            (
+                line
+                for line in reversed(game.lines)
+                if getattr(line, "owner_id", None) in (None, client.own_id)
+            ),
+            None,
+        )
+
     running = True
     while running:
         # Apply any pending map/resync packets (deferred from networking thread)
+        latest_map = None
         while not map_queue.empty():
-            apply_map(map_queue.get_nowait(), game)
+            latest_map = map_queue.get_nowait()
+        if latest_map is not None:
+            apply_map(latest_map, game)
 
         events = pygame.event.get()
         keys = pygame.key.get_pressed()
@@ -243,7 +270,7 @@ if __name__ == "__main__":
                             "depot_id": game.depots[0].id,
                         }
                     )
-                    if game.lines:
+                    if _latest_owned_line() is not None:
                         action_queue.put(
                             {
                                 "type": "assign_train",
@@ -347,15 +374,17 @@ if __name__ == "__main__":
                 )
                 if mouse[0] and not clicked_last_tick:
                     if not made_new_line:
-                        game.make_new_line([])
+                        game.make_new_line([], owner_id=client.own_id)
                         action_queue.put(
                             {"type": "create_line", "tick": game._last_tick}
                         )
                         made_new_line = True
                     else:
+                        line = _latest_owned_line()
                         for node in game.nodes:
                             if node.check_collision(world_pos):
-                                game.lines[-1].toggle_station(node)
+                                if line is not None:
+                                    line.toggle_station(node)
                                 action_queue.put(
                                     {
                                         "type": "toggle_station",

@@ -162,7 +162,11 @@ def _serialize_depot(depot) -> dict:
 def _serialize_line(line, game) -> dict:
     line_id = getattr(line, "id", f"ln_{game.lines.index(line)}")
     station_ids = [_find_station_id(node, game) for node in line._main_nodes]
-    return {"id": line_id, "stations": station_ids}
+    return {
+        "id": line_id,
+        "owner_id": getattr(line, "owner_id", None),
+        "stations": station_ids,
+    }
 
 
 def _serialize_train_static(train) -> dict:
@@ -277,6 +281,7 @@ def apply_map(data: dict, game):
         game.nodes.append(node)
         node_by_id[depot_data["id"]] = node
         depot = _NetworkDepot(depot_data["id"], node)
+        node.reference = depot
         game.depots.append(depot)
 
     for track_data in data.get("tracks", []):
@@ -303,9 +308,9 @@ def apply_map(data: dict, game):
             if sid in node_by_id
         ]
         try:
-            line = Line(station_nodes)
+            line = Line(None, station_nodes, owner_id=line_data.get("owner_id"))
         except Exception:
-            line = Line([])
+            line = Line(None, [], owner_id=line_data.get("owner_id"))
         line.id = line_data["id"]
         game.lines.append(line)
 

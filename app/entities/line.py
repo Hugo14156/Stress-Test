@@ -18,18 +18,25 @@ class Line(Entity):
     moving along the line in either direction.
     """
 
-    def __init__(self, player, nodes=None):
+    def __init__(self, player=None, nodes=None, owner_id=None):
         """Initialise the line and compute its navigation path.
 
         Args:
+            player: Optional owning Player object. Older call sites may pass
+                the nodes list as the first argument.
             nodes (list[Node] | tuple[Node] | None): An ordered sequence of Node
                 objects defining the main stations on this line. If None, the line
                 starts empty.
+            owner_id: Optional stable network client ID for the line owner.
 
         Raises:
             ValueError: If nodes is not a list or tuple.
             ValueError: If any element in nodes is not a Node instance.
         """
+        if nodes is None and isinstance(player, (list, tuple)):
+            nodes = player
+            player = None
+
         if nodes:
             if isinstance(nodes, (list, tuple)):
                 if all(isinstance(node, Node) for node in nodes):
@@ -46,6 +53,7 @@ class Line(Entity):
         self.edges = []
         self.color = (255, 0, 0)
         self.player = player
+        self.owner_id = owner_id or getattr(player, "id", None)
         if self._main_nodes != []:
             self.calculate_navigation_path()
 
@@ -70,11 +78,9 @@ class Line(Entity):
                     for edge in node.edges:
                         if edge.start == self.navigation_nodes[index + 1]:
                             self.edges.append([edge, -1])
-                            edge.change_color(self.color)
                             break
                         elif edge.end == self.navigation_nodes[index + 1]:
                             self.edges.append([edge, 1])
-                            edge.change_color(self.color)
                             break
 
     def distance_to_next_station(self, current_node, bound):
@@ -155,8 +161,6 @@ class Line(Entity):
     def toggle_station(self, station):
         from app.entities.city import City
 
-        for edge in self.edges:
-            edge[0].change_color((0, 0, 0))
         if station in self._main_nodes:
             self._main_nodes.remove(station)
             if isinstance(station.reference, City):

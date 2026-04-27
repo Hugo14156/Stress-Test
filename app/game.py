@@ -309,7 +309,7 @@ class Game:
             clock.tick(self._fps)
         pygame.quit()
 
-    def make_new_line(self, main_nodes):
+    def make_new_line(self, main_nodes, owner_id=None):
         """
         Create a new line connecting the given nodes.
 
@@ -318,7 +318,9 @@ class Game:
         main_nodes : list[Node]
             The primary nodes that define the line.
         """
-        new_line = Line(self._local_player, main_nodes)
+        if owner_id is None and self._local_player is not None:
+            owner_id = self._local_player.id
+        new_line = Line(self._local_player, main_nodes, owner_id=owner_id)
         new_line.id = new_line.assign_id("Line")
         self.lines.append(new_line)
         if self._local_player is not None:
@@ -405,13 +407,24 @@ class Game:
         ]
 
     def compile_edge_render_stack(self, making_lines):
-        return [
+        stack = [
             {
                 "pos": edge.render_position,
-                "surface": edge.line_surface if making_lines else edge.full_surface,
+                "surface": edge.full_surface,
             }
             for edge in self.edges
         ]
+        if not making_lines:
+            return stack
+
+        local_owner_id = getattr(self._local_player, "id", None)
+        for line in self.lines:
+            line_owner_id = getattr(line, "owner_id", None)
+            if line_owner_id is not None and line_owner_id != local_owner_id:
+                continue
+            for edge, _ in getattr(line, "edges", []):
+                stack.append({"pos": edge.render_position, "surface": edge.line_surface})
+        return stack
 
     def compile_train_render_stack(self):
         train_render_stack = []
