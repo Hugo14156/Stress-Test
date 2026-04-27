@@ -27,22 +27,18 @@ class TrackAvatar(Avatar):
     def make_full_surface(self):
         track_sprite = pygame.image.load(str(self.image_path)).convert_alpha()
         scaled_size = (
-            track_sprite.get_width() // self.scale,
-            track_sprite.get_height() // self.scale,
+            int(track_sprite.get_width() / self.scale),
+            int(track_sprite.get_height() / self.scale),
         )
         track_sprite = pygame.transform.smoothscale(track_sprite, scaled_size)
         tile_count = math.ceil(self.length / track_sprite.get_width()) + 1
         self.full_surface = pygame.Surface(
             (self.length, track_sprite.get_height()), pygame.SRCALPHA
         )
-        for i in range(1, tile_count + 1):
-            sprite_rect = track_sprite.get_rect(
-                center=(
-                    (track_sprite.get_width() // 2) * i,
-                    track_sprite.get_height() // 2,
-                )
-            )
-            self.full_surface.blit(track_sprite, sprite_rect)
+
+        for i in range(tile_count):
+            x = i * track_sprite.get_width()
+            self.full_surface.blit(track_sprite, (x, 0))
         self.track_sprite = track_sprite
 
     def make_line_surface(self):

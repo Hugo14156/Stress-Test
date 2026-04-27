@@ -440,6 +440,24 @@ class Screens:
                     return "train_list"
         return None
 
+    def purchase_complete(self, screen):
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((110, 230, 100, 110))
+        screen.blit(overlay, (0, 0))
+
+        popup = pygame.Rect(
+            200,
+            200,
+            self.width - 400,
+            self.height - 400
+        )
+
+        pygame.draw.rect(screen, (235, 235, 235), popup, border_radius=18)
+        pygame.draw.rect(screen, (40, 40, 40), popup, 4, border_radius=18)
+
+        title = self.title_font.render("Purchase Complete!", True, (20, 20, 20))
+        screen.blit(title, title.get_rect(center=(popup.centerx, popup.y + 220)))
+
     def player_money(self, screen, money):
         """
         Displays the player's current money on the screen.
@@ -452,6 +470,6 @@ class Screens:
             None
         """
         cash = int(money)
-        pygame.draw.rect(screen, (80, 60, 40), (30, self.height - 86, 260, 55), border_radius=12)
+        pygame.draw.rect(screen, (80, 60, 40), (30, self.height - 86, 310, 55), border_radius=12)
         money_text = self.button_font.render(f"Money: ${cash}", True, (255, 255, 255))
         screen.blit(money_text, (50, self.height - 80))

@@ -62,6 +62,7 @@ class Game:
         self.lines = []
         self.depots = []
         self.cities = []
+        self.purchase_flash_end = 0
         self.cost_per_unit_rail = 2
         self.last_node = None
         self.action = "Normal"
@@ -279,6 +280,9 @@ class Game:
                     self.add_test_train()
                     self.trains[-1].assign_to_line(self.lines[-1])
 
+                if pygame.time.get_ticks() < self.purchase_flash_end:
+                    self._local_player.screen.purchase_complete(screen)
+
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
                 if self._local_player.screen.pause_screen(screen, events) == "resume":
@@ -295,6 +299,19 @@ class Game:
                 self._local_player.screen.depot_screen(screen, events)
                 if self._local_player.screen.depot_screen(screen, events) == "return":
                     state = "game"
+                if self._local_player.screen.depot_screen(screen, events) == "buy_EMD8":
+                    self.purchase_flash_end = pygame.time.get_ticks() + 1200
+                    self._local_player._balance -= 10000
+                    state = "game"
+                if self._local_player.screen.depot_screen(screen, events) == "buy_EMD9":
+                    self.purchase_flash_end = pygame.time.get_ticks() + 1200
+                    self._local_player._balance -= 12000
+                    state = "game"
+                if self._local_player.screen.depot_screen(screen, events) == "buy_ACS-64":
+                    self.purchase_flash_end = pygame.time.get_ticks() + 1200
+                    self._local_player._balance -= 15000
+                    state = "game"
+            
 
                 if keys[pygame.K_ESCAPE]:
                     state = "game"
@@ -430,8 +447,8 @@ class Game:
         return [
             {
                 "pos": (
-                    depot.center_node.position[0] - depot.avatar.scale,
-                    depot.center_node.position[1] - depot.avatar.scale,
+                    depot.center_node.position[0] - depot.avatar.surface.get_width() // 2,
+                    depot.center_node.position[1] - depot.avatar.surface.get_height() // 2,
                 ),
                 "surface": depot.avatar.surface,
             }
@@ -442,8 +459,8 @@ class Game:
         return [
             {
                 "pos": (
-                    city.center_node.position[0] - (city.avatar.scale // 2),
-                    city.center_node.position[1] - (city.avatar.scale // 2),
+                    city.center_node.position[0] - city.avatar.surface.get_width() // 2,
+                    city.center_node.position[1] - city.avatar.surface.get_height() // 2,
                 ),
                 "surface": city.avatar.surface,
             }

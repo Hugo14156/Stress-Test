@@ -9,7 +9,7 @@ class CityAvatar(StationAvatar):
         super().__init__()
         self.scale = 50
         self.surface = pygame.Surface((self.scale, self.scale), pygame.SRCALPHA)
-        self.surface.fill((128, 128, 128))
+        self.surface.fill((140, 60, 50))
 
         # image_path = (
         #     Path(__file__).resolve().parents[3]
