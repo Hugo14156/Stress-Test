@@ -1,122 +1,83 @@
-from car import Car
+"""
+Passenger car entity for Stress Test.
+
+Defines the PassengerCar class, a specialisation of Car for transporting
+passengers. Handles boarding and alighting of passengers at city stations
+along the train's route.
+"""
+
+from app.entities.car import Car
 
 
 class PassengerCar(Car):
-    """
-    Brief summary of the class.
+    """A passenger-carrying car that follows a train along the track network.
 
-    A more detailed description of what the class does, its purpose,
-    and any important implementation details.
-
-    :param param1: Description of the first parameter.
-    :type param1: str
-    :param param2: Description of the second parameter.
-    :type param2: int
-    :raises ValueError: If an invalid value is provided.
-    :example:
-        >>> obj = MyClass("name", 42)
-        >>> obj.method()
-        'result'
+    Extends Car to provide passenger-specific loading and unloading logic.
+    Boards passengers whose destination is reachable via the train's line,
+    and disembarks them when their destination station is reached.
     """
 
-    def __init__(self, train, avatar, data_sheet, depot):
-        """
-        Short description of the method.
-
-        Longer description providing more details (optional).
+    def __init__(self, train, avatar, depot):
+        """Initialise the passenger car and register it with the depot.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
-
-        Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            train: The train this car belongs to and follows.
+            avatar: The graphical representation of this car.
+            depot: The depot used to assign a unique car ID.
         """
-        self.id = depot.assign_pcar_id()
-        self.train = train
-        self.avatar = avatar
+        super().__init__(train, avatar, depot, "Passenger Car")
         self.passengers = []
-        self.data_sheet = data_sheet
 
     def load(self, passengers):
-        """
-        Loads passengers onto car.
+        """Load passengers onto the car up to its capacity.
 
-        Will attempt to load all passeners provided into car. If car is at capacity
-        or reaches capacity while loading, the loading prosses will stop. Will return
-        a list of all passengers successfully loaded onto the car.
+        Attempts to load all provided passengers in order. Stops early if
+        the car reaches capacity, returning any passengers that could not
+        be boarded.
 
         Args:
-            passengers (list): A list of passengers to attempt to load.
+            passengers (list): A list of Passenger objects to attempt to load.
 
         Returns:
-            list: A list of all successfully loaded passengers (an empty list if no passengers were loaded).
+            list: Any passengers that could not be loaded due to capacity.
+                Returns an empty list if all passengers were loaded successfully.
 
         Raises:
-            ValueError: passengers is not a list
-            ValueError: passengers contained a non passenger type value
+            ValueError: If passengers is not a list.
+            ValueError: If any element in passengers is not a Passenger instance.
 
         Examples:
             >>> load([passenger_1, passenger_2, passenger_3])
-            [passenger_1, passenger_2]
+            [passenger_3]
         """
-        if isinstance(passengers, list):
+        from app.entities.passenger import Passenger
+
+        if not isinstance(passengers, list):
             raise ValueError(
                 "passengers is not a list. Please input passengers as a list of passenger types."
             )
         for index, passenger in enumerate(passengers):
-            if isinstance(passenger, Passenger):
+            if not isinstance(passenger, Passenger):
                 raise ValueError(
                     f"index {index} of passengers is not a passenger. Please input passengers as a list of passenger types."
                 )
-            if len(self.passengers) < self.data_sheet["Passenger Capacity"]:
+            if len(self.passengers) < self.avatar.passenger_capacity:
                 self.passengers.append(passenger)
-                passenger.embark(self)
+                passenger.board_train(self)
             else:
                 return passengers[index:]
         return None
 
-    def unload(self):
-        """
-        Unload all relevant passengers.
+    def unload(self, station):
+        """Disembark all passengers whose destination matches the current station.
 
-        Asks all passengers to check if the current station is their destination. If so, they will
-        disembark.
+        Iterates over onboard passengers and removes those who have reached
+        their destination, delegating the disembark logic to each passenger.
 
         Examples:
             >>> unload()
         """
-        location = self.train.location
         for passenger in self.passengers:
-            if passenger.destination == location:
-                passenger.disembark(location)
+            if passenger.check_valid_city(station):
+                passenger.pay()
                 self.passengers.remove(passenger)
-
-    def render(self):
-        """
-        Short description of the method.
-
-        Longer description providing more details (optional).
-
-        Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
-
-        Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
-        """
-        pass

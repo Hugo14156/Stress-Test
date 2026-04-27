@@ -1,4 +1,10 @@
-class Cargo:
+"""WORK IN PROGRESS"""
+
+
+from app.entities.entity import Entity
+
+
+class Cargo(Entity):
     """
     Brief summary of the class.
 
@@ -36,6 +42,8 @@ class Cargo:
             >>> example_method(1, "test")
             True
         """
+        super().__init__()
         self.id = station.assign_id("Cargo")
+        self.owner = station.owner
         self.location = station
         self.kind = kind

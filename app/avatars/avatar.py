@@ -1,66 +1,42 @@
+"""
+Base avatar class for graphical representation of game objects.
+
+Provides a reusable foundation for sprite-based objects in the game,
+managing surface rendering and rotation. Intended to be subclassed,
+not used directly.
+"""
+
+import pygame
+
+
 class Avatar:
     """
-    Transports passengers and/or cargo along a line. Pathfinds to closest owned depot when in need
-    of maintenance.
-
-    Trains are the core of the transport system. Can be bought at a TrainDepot, and will remain
-    there until assigned to a line. Once on a line, a train will travel to each station on the
-    line, prompting at each for all compatable cargo/passengers to load/unload. Will periodicaly
-    worsen in condition, slowing down as it does so. If condiciton falls below the cutoff, train
-    train will navigate to closest depot and reviece maintence. Once fixed, it will return to
-    normal operation.
-
-    :param depot: The spawn depot of the train.
-    :type depot: TrainDepot
-    :param cars: All cars attached to locomotive at purchase.
-    :type cars: list of Cars
-    :param avatar: Avatar to render. Also provides data sheet for performace stats.
-    :type avatar: TrainAvatar
-    :raises ValueError: If an invalid value is provided.
-    :example:
-        >>> obj = Train(depot, [car1, car2, car2], model_2)
+    Serves as a graphical and statistical representation of an object in the game. Framework class
+    to be inherited by others. Not to be used by itself.
     """
 
-    def __init__(self, depot, cars, avatar):
-        """
-        Short description of the method.
+    def __init__(self):
+        """Initialise the avatar with default asset folder paths and a null surface."""
+        self.surface = None
 
-        Longer description providing more details (optional).
+    def rotate(self, world_position, angle):
+        """Rotate surface to face the given angle at the given world position.
 
         Args:
-            param1 (int): Description of param1.
-            param2 (str): Description of param2.
+            world_position (tuple[int, int]): The (x, y) world coordinates of surface.
+            angle (float): The rotation angle in degrees (counter-clockwise).
 
         Returns:
-            bool: Description of the return value.
-
-        Raises:
-            ValueError: Description of conditions when this exception is raised.
-
-        Examples:
-            >>> example_method(1, "test")
-            True
+            tuple[pygame.Surface, tuple[int, int]]: The rotated surface and the
+                top-left position to blit it at, preserving the avatar's visual centre.
         """
-        if isinstance(depot, TrainDepot):
-            self._id = depot.assign_train_id()
-            self._location = depot
-        else:
-            raise ValueError("depot must be an instance of the TrainDepot class")
-        if all(isinstance(car, Car) for car in cars):
-            self._cars = cars
-        else:
-            raise ValueError(
-                "cars must be a list containing either nothing or only Car/children-of-Car objects"
-            )
-        if isinstance(avatar, Avatar):
-            self.avatar = avatar
-        else:
-            raise ValueError(
-                "avatar must be an Avatar object or a child object of the Avatar class"
-            )
-        self._bound = None
-        self._line = None
-        self._position = None
-
-    def assign_line(self, new_line):
-        self.line = new_line
+        rotated_image = pygame.transform.rotate(self.surface, angle)
+        new_rect = rotated_image.get_rect(
+            center=self.surface.get_rect(
+                topleft=(
+                    world_position[0] - (self.surface.get_width() // 2),
+                    world_position[1] - (self.surface.get_height() // 2),
+                )
+            ).center
+        )
+        return (rotated_image, new_rect.topleft)

@@ -1,0 +1,114 @@
+{
+  "_note": "All coordinates are in world space. Clients convert screen->world before sending. Client ID is never included in client->server packets — the server resolves it from the WebSocket connection. Entity IDs are never chosen by clients — the server assigns and broadcasts them.",
+  "_id_prefixes": {
+    "track":   "trk_0",
+    "city":    "cty_0",
+    "depot":   "dep_0",
+    "line":    "ln_0",
+    "train":   "t_0",
+    "car":     "c_0",
+    "client":  "uuid"
+  },
+
+  "server_to_client": {
+    "map_state": {
+      "_when": "Sent once on client connect",
+      "type": "map",
+      "tracks": [{ "id": "trk_0", "station_a": "cty_0", "station_b": "dep_0" }],
+      "cities": [{ "id": "cty_0", "x": 700, "y": 200, "name": "Goonville" }],
+      "depots": [{ "id": "dep_0", "x": 200, "y": 150 }],
+      "lines": [{ "id": "ln_0", "stations": ["cty_0", "cty_1"] }],
+      "trains": [{ "id": "t_0", "line_id": "ln_0" }]
+    },
+
+    "tick": {
+      "_when": "Broadcast every server tick (~20/s)",
+      "type": "tick",
+      "tick": 1042,
+      "trains": [{ "id": "t_0", "x": 412, "y": 287, "angle": 1.23 }],
+      "cars": [{ "id": "c_0", "x": 390, "y": 271, "angle": 1.23 }],
+      "cursors": [{ "id": "uuid", "x": 550, "y": 300 }]
+    },
+
+    "resync": {
+      "_when": "Sent in response to a client resync request — full current state",
+      "type": "resync",
+      "tick": 1042,
+      "tracks": [],
+      "cities": [],
+      "depots": [],
+      "lines": [],
+      "trains": [],
+      "cars": []
+    },
+
+    "action_reject": {
+      "_when": "Sent to the client whose action was rejected",
+      "type": "reject",
+      "tick": 1042,
+      "action": "place_track",
+      "reason": "tick too old"
+    }
+  },
+
+  "client_to_server": {
+    "cursor": {
+      "_when": "Sent continuously at ~20/s",
+      "type": "cursor",
+      "tick": 1042,
+      "x": 412,
+      "y": 287
+    },
+
+    "place_track": {
+      "_when": "Client places a track between two existing stations. Server assigns the ID and broadcasts it.",
+      "type": "place_track",
+      "tick": 1042,
+      "station_a": "cty_0",
+      "station_b": "dep_0"
+    },
+
+    "place_city": {
+      "_when": "Client places a city. Server assigns the ID and broadcasts it.",
+      "type": "place_city",
+      "tick": 1042,
+      "x": 300,
+      "y": 415,
+      "name": "Goonville"
+    },
+
+    "buy_train": {
+      "_when": "Client purchases a train from a depot. Server assigns the train ID.",
+      "type": "buy_train",
+      "tick": 1042,
+      "depot_id": "dep_0"
+    },
+
+    "create_line": {
+      "_when": "Client creates a new line between stations. Server assigns the line ID.",
+      "type": "create_line",
+      "tick": 1042,
+      "stations": ["cty_0", "cty_1", "cty_2"]
+    },
+
+    "assign_train": {
+      "_when": "Client assigns an existing train to an existing line.",
+      "type": "assign_train",
+      "tick": 1042,
+      "train_id": "t_0",
+      "line_id": "ln_1"
+    },
+
+    "ack": {
+      "_when": "Sent every ~10 ticks so server can track client lag",
+      "type": "ack",
+      "tick": 1042
+    },
+
+    "resync_request": {
+      "_when": "Sent when client detects a gap in received ticks",
+      "type": "resync",
+      "last_tick": 1039
+    }
+  }
+}
