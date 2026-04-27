@@ -383,13 +383,18 @@ class Game:
             self.edges.append(new_edge)
             return new_edge, end_node
 
-    def place_new_depot(self, player, position, owner_id=None):
+    def place_new_depot(self, player, position, owner_id=None, owner_color=None):
         new_depot_center_node = self.place_new_node(position)
         _, new_depot_entry_node = self.place_new_edge(
             new_depot_center_node, [position[0], position[1] - 100]
         )
         new_depot = TrainDepot(player, [new_depot_center_node, new_depot_entry_node])
         new_depot.owner_id = owner_id
+        new_depot.owner_color = owner_color
+        if owner_color is not None:
+            from app.avatars.stations.depot_avatar import DepotAvatar
+
+            new_depot.avatar = DepotAvatar(player, tuple(owner_color))
         new_depot_center_node.id = new_depot.id  # keep node ID in sync with entity ID
         self.depots.append(new_depot)
         return new_depot

@@ -17,15 +17,17 @@ import math
 class _NetworkTrain:
     """Minimal train stand-in on the client — holds position and avatar only."""
 
-    def __init__(self, train_id: str, line_id: str | None = None):
+    def __init__(self, train_id: str, line_id: str | None = None, owner_id=None, owner_color=None):
         from app.avatars.trains.test_train import TestTrain
 
         self.id = train_id
         self.line_id = line_id
+        self.owner_id = owner_id
+        self.owner_color = owner_color
         self.owner = None
         self._position = None
         self._network_angle = 0.0
-        self.avatar = TestTrain()
+        self.avatar = TestTrain(tuple(owner_color) if owner_color is not None else None)
         self.cars: list = []
 
     def get_position(self):
@@ -69,13 +71,14 @@ class _NetworkCity:
 class _NetworkDepot:
     """Minimal depot stand-in on the client — holds position and avatar for rendering."""
 
-    def __init__(self, depot_id: str, node, owner_id: str | None = None):
+    def __init__(self, depot_id: str, node, owner_id: str | None = None, owner_color=None):
         from app.avatars.stations.depot_avatar import DepotAvatar
 
         self.id = depot_id
         self.owner_id = owner_id
+        self.owner_color = owner_color
         self.center_node = node
-        self.avatar = DepotAvatar(None)
+        self.avatar = DepotAvatar(None, tuple(owner_color) if owner_color is not None else None)
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +204,7 @@ def _serialize_depot(depot) -> dict:
     return {
         "id": depot.id,
         "owner_id": getattr(depot, "owner_id", None),
+        "owner_color": getattr(depot, "owner_color", None),
         "x": depot.center_node.position[0],
         "y": depot.center_node.position[1],
     }
@@ -220,6 +224,8 @@ def _serialize_train_static(train) -> dict:
     line_id = getattr(train.line, "id", None) if train.line else None
     return {
         "id": train.id,
+        "owner_id": getattr(train, "owner_id", None),
+        "owner_color": getattr(train, "owner_color", None),
         "line_id": line_id,
         "cars": [car.id for car in train.cars],
     }
@@ -333,7 +339,12 @@ def apply_map(data: dict, game):
         node.id = depot_data["id"]
         game.nodes.append(node)
         node_by_id[depot_data["id"]] = node
-        depot = _NetworkDepot(depot_data["id"], node, depot_data.get("owner_id"))
+        depot = _NetworkDepot(
+            depot_data["id"],
+            node,
+            depot_data.get("owner_id"),
+            depot_data.get("owner_color"),
+        )
         node.reference = depot
         game.depots.append(depot)
 
@@ -368,7 +379,12 @@ def apply_map(data: dict, game):
         game.lines.append(line)
 
     for train_data in data.get("trains", []):
-        stub = _NetworkTrain(train_data["id"], train_data.get("line_id"))
+        stub = _NetworkTrain(
+            train_data["id"],
+            train_data.get("line_id"),
+            train_data.get("owner_id"),
+            train_data.get("owner_color"),
+        )
         for car_id in train_data.get("cars", []):
             stub.cars.append(_NetworkCar(car_id))
         game.trains.append(stub)
@@ -465,10 +481,17 @@ def _apply_train_add(data: dict, game):
 
     train = next((train for train in game.trains if train.id == train_data.get("id")), None)
     if train is None:
-        train = _NetworkTrain(train_data["id"], train_data.get("line_id"))
+        train = _NetworkTrain(
+            train_data["id"],
+            train_data.get("line_id"),
+            train_data.get("owner_id"),
+            train_data.get("owner_color"),
+        )
         game.trains.append(train)
     else:
         train.line_id = train_data.get("line_id")
+        train.owner_id = train_data.get("owner_id")
+        train.owner_color = train_data.get("owner_color")
 
     existing_cars = {car.id: car for car in train.cars}
     train.cars = [

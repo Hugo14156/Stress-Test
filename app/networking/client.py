@@ -90,6 +90,9 @@ class WebSocketClient:
             self._own_id = data["id"]
             if self._game is not None and self._game._local_player is not None:
                 self._game._local_player.id = self._own_id
+                self._game._local_player.color = tuple(
+                    data.get("color", self._game._local_player.color)
+                )
 
         elif msg_type in ("map", "resync"):
             if self._map_queue is not None:

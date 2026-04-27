@@ -4,13 +4,13 @@ import math
 
 
 class DepotAvatar(StationAvatar):
-    def __init__(self, player):
+    def __init__(self, player, color=None):
         super().__init__()
         self.scale = 50
         self.player = player
         self.points = self.hexagon_points((self.scale, self.scale), self.scale)
         self.surface = pygame.Surface((self.scale * 2, self.scale * 2), pygame.SRCALPHA)
-        color = player.color if player is not None else (128, 128, 128)
+        color = color or (player.color if player is not None else (128, 128, 128))
         pygame.draw.polygon(self.surface, color, self.points)
 
     def hexagon_points(self, center, size):

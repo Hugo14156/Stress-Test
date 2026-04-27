@@ -247,7 +247,13 @@ if __name__ == "__main__":
         async def on_connect(websocket: ServerConnection) -> None:
             nonlocal _player_count
             pos = _DEPOT_POSITIONS[_player_count % len(_DEPOT_POSITIONS)]
-            game.place_new_depot(None, pos, owner_id=server._client_ids[websocket])
+            owner_id = server._client_ids[websocket]
+            game.place_new_depot(
+                None,
+                pos,
+                owner_id=owner_id,
+                owner_color=server._client_colors[owner_id],
+            )
             _player_count += 1
             # Notify already-connected clients of the new depot
             await server.broadcast_except(
@@ -304,6 +310,8 @@ if __name__ == "__main__":
                     return
                 train = game.add_test_train(depot)
                 if train:
+                    train.owner_id = cid
+                    train.owner_color = server._client_colors.get(cid)
                     line = latest_owned_line(cid)
                     if line is None:
                         await server.send_to(
