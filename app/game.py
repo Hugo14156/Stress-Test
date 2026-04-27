@@ -132,7 +132,7 @@ class Game:
             )
 
             # Clear Screen
-            screen.fill("grey")
+            screen.fill((240, 220, 180))
 
             for event in events:
                 if event.type == pygame.QUIT:
@@ -285,8 +285,9 @@ class Game:
                     state = "game"
 
             elif state == "depot":
-                self._local_player.camera.move(keys)
                 self._local_player.screen.depot_screen(screen, events)
+                if self._local_player.screen.depot_screen(screen, events) == "return":
+                    state = "game"
 
                 if keys[pygame.K_ESCAPE]:
                     state = "game"

@@ -80,12 +80,12 @@ class Screens:
         """
         mouse_pos = pygame.mouse.get_pos()
 
-        pause_button = pygame.Rect(self.width // 2 - 80, 20, 70, 70)
+        pause_button = pygame.Rect(self.width // 2 - 150, 20, 70, 70)
         pause_hovered = pause_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if pause_hovered else (100, 100, 100),
+            (200, 180, 120) if pause_hovered else (180, 160, 100),
             pause_button,
             border_radius=12,
         )
@@ -93,12 +93,12 @@ class Screens:
         text = self.button_font.render("||", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=pause_button.center))
 
-        quit_button = pygame.Rect(self.width // 2 + 10, 20, 70, 70)
+        quit_button = pygame.Rect(self.width // 2 - 60, 20, 70, 70)
         quit_hovered = quit_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if quit_hovered else (100, 100, 100),
+            (200, 180, 120) if quit_hovered else (180, 160, 100),
             quit_button,
             border_radius=12,
         )
@@ -106,12 +106,12 @@ class Screens:
         text = self.button_font.render("X", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=quit_button.center))
 
-        track_button = pygame.Rect(self.width // 2 + 100, 20, 70, 70)
+        track_button = pygame.Rect(self.width // 2 + 30, 20, 70, 70)
         track_hovered = track_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if track_hovered else (100, 100, 100),
+            (120, 120, 240) if track_hovered else (100, 150, 240),
             track_button,
             border_radius=12,
         )
@@ -121,12 +121,12 @@ class Screens:
         )
         screen.blit(text, text.get_rect(center=track_button.center))
 
-        line_button = pygame.Rect(self.width // 2 + 190, 20, 70, 70)
+        line_button = pygame.Rect(self.width // 2 + 120, 20, 70, 70)
         line_hovered = line_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if line_hovered else (100, 100, 100),
+            (120, 120, 240) if line_hovered else (100, 150, 240),
             line_button,
             border_radius=12,
         )
@@ -278,7 +278,7 @@ class Screens:
     
     def depot_screen(self, screen, events):
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 30, 120))
+        overlay.fill((220, 200, 160, 120))
         screen.blit(overlay, (0, 0))
 
         popup = pygame.Rect(
@@ -302,7 +302,7 @@ class Screens:
 
         total_width = button_width * 3 + gap * 2
         start_x = popup.centerx - total_width // 2 - 50
-        y_pos = popup.y + 160
+        y_pos = popup.y + 170
 
         EMD8_button = pygame.Rect(
             start_x,
@@ -361,6 +361,25 @@ class Screens:
         text = self.button_font.render("Buy Siemens ACS-64", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=siemens_button.center))
 
+        return_button = pygame.Rect(
+            start_x + (button_width + gap) * 2,
+            y_pos + 180,
+            button_width + 150,
+            button_height
+        )
+
+        return_hovered = return_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (50, 80, 220) if return_hovered else (80, 110, 250),
+            return_button,
+            border_radius=12
+        )
+
+        text = self.button_font.render("Return to Game", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=return_button.center))
+
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if EMD8_hovered:
@@ -371,4 +390,7 @@ class Screens:
 
                 if siemens_hovered:
                     return "buy_ACS-64"
+                
+                if return_hovered:
+                    return "return"
         return None
