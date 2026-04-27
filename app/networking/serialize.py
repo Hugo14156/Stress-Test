@@ -61,6 +61,16 @@ class _NetworkCity:
         self.avatar = CityAvatar()
 
 
+class _NetworkDepot:
+    """Minimal depot stand-in on the client — holds position and avatar for rendering."""
+
+    def __init__(self, depot_id: str, node):
+        from app.avatars.stations.depot_avatar import DepotAvatar
+        self.id = depot_id
+        self.center_node = node
+        self.avatar = DepotAvatar(None)
+
+
 # ---------------------------------------------------------------------------
 # Server -> Client: serialize game state into packet dicts
 # ---------------------------------------------------------------------------
@@ -93,12 +103,12 @@ def serialize_tick(game, tick: int, cursors: list[dict]) -> dict:
 
 
 def serialize_resync(game, tick: int) -> dict:
-    """Full state resync — same shape as map but includes tick counter."""
+    """Full state resync — map state plus current train/car positions."""
     data = serialize_map(game)
     data["type"] = "resync"
     data["tick"] = tick
-    data["trains"] = [_serialize_train_position(t) for t in game.trains]
-    data["cars"] = [
+    data["train_positions"] = [_serialize_train_position(t) for t in game.trains]
+    data["car_positions"] = [
         _serialize_car_position(car)
         for train in game.trains
         for car in train.cars
@@ -219,15 +229,19 @@ def apply_map(data: dict, game):
     existing render stack methods work without modification.
     """
     from app.core.node_graph import Node, Edge
+    from app.entities.line import Line
 
     # Clear existing client-side state
     game.nodes.clear()
     game.edges.clear()
     game.trains.clear()
+    game.lines.clear()
     if hasattr(game, "cities"):
         game.cities.clear()
+    if hasattr(game, "depots"):
+        game.depots.clear()
 
-    # Build id->Node map so tracks can look up their endpoints
+    # Build id->Node map so tracks and lines can look up their endpoints
     node_by_id: dict[str, Node] = {}
 
     for city_data in data.get("cities", []):
@@ -244,9 +258,11 @@ def apply_map(data: dict, game):
         node.id = depot_data["id"]
         game.nodes.append(node)
         node_by_id[depot_data["id"]] = node
+        depot = _NetworkDepot(depot_data["id"], node)
+        game.depots.append(depot)
 
     for track_data in data.get("tracks", []):
-        # Create any endpoint nodes that aren't city/depot centres (e.g. entry nodes)
+        # Create any endpoint nodes not already known (e.g. entry nodes)
         for side, xk, yk in (("station_a", "ax", "ay"), ("station_b", "bx", "by")):
             sid = track_data[side]
             if sid not in node_by_id and xk in track_data:
@@ -262,6 +278,15 @@ def apply_map(data: dict, game):
             edge.id = track_data["id"]
             game.edges.append(edge)
 
+    for line_data in data.get("lines", []):
+        station_nodes = [node_by_id[sid] for sid in line_data.get("stations", []) if sid in node_by_id]
+        try:
+            line = Line(station_nodes)
+        except Exception:
+            line = Line([])
+        line.id = line_data["id"]
+        game.lines.append(line)
+
     for train_data in data.get("trains", []):
         stub = _NetworkTrain(train_data["id"])
         for car_id in train_data.get("cars", []):
@@ -271,19 +296,16 @@ def apply_map(data: dict, game):
     if "tick" in data:
         game._last_tick = data["tick"]
 
-    # Apply positions when present (resync packet overlays train/car positions)
     train_map = {t.id: t for t in game.trains}
-    for entry in data.get("trains", []):
-        if "x" in entry:
-            train = train_map.get(entry["id"])
-            if train:
-                train._position = (entry["x"], entry["y"])
-                train._network_angle = entry.get("angle", 0.0)
+    for entry in data.get("train_positions", []):
+        train = train_map.get(entry["id"])
+        if train:
+            train._position = (entry["x"], entry["y"])
+            train._network_angle = entry.get("angle", 0.0)
 
     car_map = {car.id: car for t in game.trains for car in t.cars}
-    for entry in data.get("cars", []):
-        if "x" in entry:
-            car = car_map.get(entry["id"])
-            if car:
-                car._position = (entry["x"], entry["y"])
-                car._network_angle = entry.get("angle", 0.0)
+    for entry in data.get("car_positions", []):
+        car = car_map.get(entry["id"])
+        if car:
+            car._position = (entry["x"], entry["y"])
+            car._network_angle = entry.get("angle", 0.0)
