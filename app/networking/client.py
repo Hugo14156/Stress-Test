@@ -25,6 +25,7 @@ DEBUG_NETWORK = os.environ.get("STRESS_TEST_DEBUG", "1") != "0"
 
 
 def _log(event: str, message: str, *, debug: bool = True) -> None:
+    """Conditionally print a labeled debug message to stdout."""
     if debug and not DEBUG_NETWORK:
         return
     print(f"[client][{event}] {message}")
@@ -62,6 +63,7 @@ class WebSocketClient:
     """
 
     def __init__(self, uri: str, message_handler: MessageHandler | None = None) -> None:
+        """Initialise the client with the server URI and an optional message handler."""
         self.uri = uri
         self._connection: ClientConnection | None = None
         self._message_handler = message_handler
@@ -81,6 +83,7 @@ class WebSocketClient:
 
     @property
     def own_id(self) -> str | None:
+        """The client's server-assigned UUID, or None before the id packet is received."""
         return self._own_id
 
     def _queue_latest_map(self, data: dict) -> None:
@@ -95,12 +98,14 @@ class WebSocketClient:
         self._map_queue.put(data)
 
     async def connect(self) -> None:
+        """Open the WebSocket connection to the server URI."""
         if self._connection is not None:
             raise RuntimeError("Client is already connected.")
         self._connection = await connect(self.uri, compression=None)
         _log("connect", f"connected to {self.uri}", debug=False)
 
     async def disconnect(self) -> None:
+        """Cancel the listener task and close the WebSocket connection."""
         if self._connection is None:
             raise RuntimeError("Client is not connected.")
         if self._listener_task is not None:
@@ -118,10 +123,12 @@ class WebSocketClient:
         self._listener_task = asyncio.create_task(self._receive_loop())
 
     async def _receive_loop(self) -> None:
+        """Continuously read messages from the server and route them."""
         async for message in self._connection:
             await self._route_message(str(message))
 
     async def _route_message(self, message: str) -> None:
+        """Dispatch an incoming JSON message to the appropriate handler."""
         data = json.loads(message)
         msg_type = data.get("type")
 
@@ -144,7 +151,7 @@ class WebSocketClient:
             elif self._game is not None:
                 apply_map(data, self._game)
 
-        elif msg_type in ("track_add", "line_update", "train_add"):
+        elif msg_type in ("track_add", "line_update", "train_add", "economy_state"):
             if self._map_queue is not None:
                 self._map_queue.put(data)
             elif self._game is not None:
@@ -177,6 +184,7 @@ class WebSocketClient:
                 await result
 
     async def send(self, message: str) -> None:
+        """Send a raw string message, silently dropping it if the connection is closed."""
         if self._connection is None:
             return
         try:
@@ -212,15 +220,18 @@ class WebSocketClient:
         )
 
     async def recv(self) -> str:
+        """Await and return the next raw message from the server."""
         if self._connection is None:
             raise RuntimeError("Client is not connected.")
         message = await self._connection.recv()
         return str(message)
 
     async def _send_ack(self, tick: int) -> None:
+        """Acknowledge receipt of a tick so the server can track client lag."""
         await self.send(json.dumps({"type": "ack", "tick": tick}))
 
     async def _request_resync(self, last_tick: int) -> None:
+        """Ask the server to retransmit full map state starting from last_tick."""
         await self.send(json.dumps({"type": "resync", "last_tick": last_tick}))
 
 
@@ -275,6 +286,7 @@ if __name__ == "__main__":
     client.attach_map_queue(map_queue)
 
     async def _networking() -> None:
+        """Connect to the server, then drain action/cursor queues at fixed rates."""
         await client.connect()
         await client.listen()
         next_cursor_send = 0.0
@@ -303,6 +315,7 @@ if __name__ == "__main__":
             await asyncio.sleep(1 / ACTION_POLL_HZ)
 
     def _run_networking() -> None:
+        """Thread entry point that runs the async networking loop."""
         asyncio.run(_networking())
 
     thread = threading.Thread(target=_run_networking, daemon=True)
@@ -313,11 +326,13 @@ if __name__ == "__main__":
     screen = pygame.display.set_mode(game.resolution)
     pygame.display.set_caption("Stress Test")
     clock = pygame.time.Clock()
+    hud_font = pygame.font.Font(None, 30)
     state = "home"
     clicked_last_tick = False
     made_new_line = False
 
     def _latest_owned_line():
+        """Return the most recently created line owned by this client."""
         return next(
             (
                 line
@@ -328,6 +343,7 @@ if __name__ == "__main__":
         )
 
     def _owned_depot():
+        """Return the depot owned by this client, or None."""
         return next(
             (
                 depot
@@ -373,8 +389,21 @@ if __name__ == "__main__":
                             "type": "buy_train",
                             "tick": game._last_tick,
                             "depot_id": depot.id,
+                            "train_type": "EMD_E9",
                         }
                     )
+                if event.key == pygame.K_b and game.economy_state:
+                    players = game.economy_state.get("players", {})
+                    target_id = next((pid for pid in players if pid != client.own_id), None)
+                    if target_id is not None:
+                        action_queue.put(
+                            {
+                                "type": "buy_stock",
+                                "tick": game._last_tick,
+                                "target_id": target_id,
+                                "quantity": 1,
+                            }
+                        )
         if state == "home":
             if game._local_player.screen.homescreen(screen, events) == "start":
                 state = "game"
@@ -389,6 +418,25 @@ if __name__ == "__main__":
                 game.action == "PlacingTrack", making_lines
             )
             game._local_player.camera.draw(screen, render_stack)
+            balance_text = hud_font.render(
+                f"${game._local_player._balance:,.0f}",
+                True,
+                (20, 20, 20),
+            )
+            screen.blit(balance_text, (20, 20))
+            if game.economy_state:
+                prices = game.economy_state.get("stocks", {}).get("prices", {})
+                stock_bits = [
+                    f"{pid[:4]} ${price:,.0f}"
+                    for pid, price in list(prices.items())[:4]
+                ]
+                if stock_bits:
+                    stocks_text = hud_font.render(
+                        "Stocks: " + "  ".join(stock_bits),
+                        True,
+                        (20, 20, 20),
+                    )
+                    screen.blit(stocks_text, (20, 50))
 
             toolbar_action = game._local_player.screen.top_toolbar(screen, events)
             if toolbar_action == "pause":

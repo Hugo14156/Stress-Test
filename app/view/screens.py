@@ -339,7 +339,7 @@ class Screens:
             border_radius=12
         )
 
-        text = self.button_font.render("Buy EMD E9", True, (255, 255, 255))
+        text = self.button_font.render("Buy EMD E9 - $1200", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=EMD9_button.center))
 
         siemens_button = pygame.Rect(

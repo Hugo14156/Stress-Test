@@ -15,7 +15,7 @@ class Stock:
             number of stocks player i owns of player j.
     """
 
-    def __init__(self, player_finances, ownership = []):
+    def __init__(self, player_finances, ownership=None):
         """
         Initializes the stock market information for each player
 
@@ -33,7 +33,7 @@ class Stock:
         self.net_worth = [player_finance[0] for player_finance in player_finances]
         self.cash = [player_finance[1] for player_finance in player_finances]
         self.num_stocks = 50
-        if ownership == []:
+        if ownership is None:
             self.ownership = [[self.num_stocks if i == j else 0 for j in range(self._num_players)] for i in range(self._num_players)]
         else:
             self.ownership = ownership
@@ -101,8 +101,9 @@ class Stock:
             available_sellers = [player[target] for player in self.ownership]
             available_sellers[buyer] = 0
             amount, seller = min((val, idx) for idx, val in enumerate(available_sellers) if val != 0)
-            self._execute_transaction(buyer, seller, target, min(quantity, amount), price)
-            quantity = quantity - amount
+            purchased = min(quantity, amount)
+            self._execute_transaction(buyer, seller, target, purchased, price)
+            quantity = quantity - purchased
     
     def check_majority_ownership(self, player):
         """

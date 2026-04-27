@@ -18,6 +18,7 @@ class _NetworkTrain:
     """Minimal train stand-in on the client — holds position and avatar only."""
 
     def __init__(self, train_id: str, line_id: str | None = None, owner_id=None, owner_color=None):
+        """Create a client-side train stub from server-provided identifiers."""
         from app.avatars.trains.test_train import TestTrain
 
         self.id = train_id
@@ -31,9 +32,11 @@ class _NetworkTrain:
         self.cars: list = []
 
     def get_position(self):
+        """Return the last network-synced position."""
         return self._position
 
     def get_angle(self) -> float:
+        """Return the last network-synced heading in radians."""
         return self._network_angle
 
 
@@ -41,6 +44,7 @@ class _NetworkCar:
     """Minimal car stand-in on the client — holds position and avatar only."""
 
     def __init__(self, car_id: str, owner_color=None):
+        """Create a client-side car stub from server-provided identifiers."""
         from app.avatars.train_cars.test_car import TestCar
 
         self.id = car_id
@@ -51,9 +55,11 @@ class _NetworkCar:
         self.avatar = TestCar(tuple(owner_color) if owner_color is not None else None)
 
     def get_position(self):
+        """Return the last network-synced position."""
         return self._position
 
     def get_angle(self) -> float:
+        """Return the last network-synced heading in radians."""
         return self._network_angle
 
 
@@ -61,6 +67,7 @@ class _NetworkCity:
     """Minimal city stand-in on the client — holds position and avatar for rendering."""
 
     def __init__(self, city_id: str, name: str, node, rotation=0):
+        """Create a client-side city stub for rendering."""
         from app.avatars.stations.city_avatar import CityAvatar
 
         self.id = city_id
@@ -74,6 +81,7 @@ class _NetworkDepot:
     """Minimal depot stand-in on the client — holds position and avatar for rendering."""
 
     def __init__(self, depot_id: str, node, owner_id: str | None = None, owner_color=None):
+        """Create a client-side depot stub for rendering."""
         from app.avatars.stations.depot_avatar import DepotAvatar
 
         self.id = depot_id
@@ -170,7 +178,19 @@ def serialize_line_update(line, game, tick: int) -> dict:
 
 
 def serialize_reject(tick: int, action: str, reason: str) -> dict:
+    """Build a rejection packet for an action the server could not process."""
     return {"type": "reject", "tick": tick, "action": action, "reason": reason}
+
+
+def serialize_economy_state(economy, tick: int, owner_id: str | None = None) -> dict:
+    """Build an economy state packet addressed to a specific recipient."""
+    return {
+        "type": "economy_state",
+        "tick": tick,
+        "owner_id": owner_id,
+        "players": economy.players_public(),
+        "stocks": economy.stocks_public(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +199,7 @@ def serialize_reject(tick: int, action: str, reason: str) -> dict:
 
 
 def _serialize_track(edge, game) -> dict:
+    """Serialize a single track edge to a wire-format dict."""
     edge_id = getattr(edge, "id", None) or f"trk_{game.edges.index(edge)}"
     city_a = _find_station_id(edge.start, game)
     city_b = _find_station_id(edge.end, game)
@@ -194,6 +215,7 @@ def _serialize_track(edge, game) -> dict:
 
 
 def _serialize_city(city) -> dict:
+    """Serialize a city to a wire-format dict."""
     return {
         "id": city.id,
         "x": city.center_node.position[0],
@@ -204,6 +226,7 @@ def _serialize_city(city) -> dict:
 
 
 def _serialize_depot(depot) -> dict:
+    """Serialize a depot to a wire-format dict."""
     return {
         "id": depot.id,
         "owner_id": getattr(depot, "owner_id", None),
@@ -214,6 +237,7 @@ def _serialize_depot(depot) -> dict:
 
 
 def _serialize_line(line, game) -> dict:
+    """Serialize a line and its station list to a wire-format dict."""
     line_id = getattr(line, "id", f"ln_{game.lines.index(line)}")
     station_ids = [_find_station_id(node, game) for node in line._main_nodes]
     return {
@@ -225,6 +249,7 @@ def _serialize_line(line, game) -> dict:
 
 
 def _serialize_train_static(train) -> dict:
+    """Serialize a train's identity and car roster (not its position)."""
     line_id = getattr(train.line, "id", None) if train.line else None
     return {
         "id": train.id,
@@ -236,6 +261,7 @@ def _serialize_train_static(train) -> dict:
 
 
 def _serialize_train_position(train) -> dict | None:
+    """Serialize a train's current world position and angle, or None if parked."""
     position = train.get_position()
     if position is None:
         return None
@@ -249,6 +275,7 @@ def _serialize_train_position(train) -> dict | None:
 
 
 def _serialize_car_position(car) -> dict | None:
+    """Serialize a car's current world position and angle, or None if parked."""
     position = car.get_position()
     if position is None:
         return None
@@ -438,13 +465,17 @@ def apply_delta(data: dict, game):
         _apply_line_update(data.get("line", {}), game)
     elif msg_type == "train_add":
         _apply_train_add(data, game)
+    elif msg_type == "economy_state":
+        _apply_economy_state(data, game)
 
 
 def _find_node_by_id(game, node_id: str):
+    """Return the first node whose ID matches, or None."""
     return next((node for node in game.nodes if node.id == node_id), None)
 
 
 def _apply_track_add(track_data: dict, game):
+    """Add a new track edge to the client game state."""
     from app.core.node_graph import Node, Edge
 
     if not track_data or any(edge.id == track_data.get("id") for edge in game.edges):
@@ -470,6 +501,7 @@ def _apply_track_add(track_data: dict, game):
 
 
 def _apply_line_update(line_data: dict, game):
+    """Create or update a line in the client game state."""
     from app.entities.line import Line
 
     if not line_data:
@@ -500,6 +532,7 @@ def _apply_line_update(line_data: dict, game):
 
 
 def _apply_train_add(data: dict, game):
+    """Create or update a train stub in the client game state."""
     train_data = data.get("train", {})
     if not train_data:
         return
@@ -537,3 +570,14 @@ def _apply_train_add(data: dict, game):
         if car:
             car._position = (entry["x"], entry["y"])
             car._network_angle = entry.get("angle", 0.0)
+
+
+def _apply_economy_state(data: dict, game):
+    """Store the economy snapshot and update the local player's balance."""
+    game.economy_state = data
+    owner_id = data.get("owner_id") or getattr(getattr(game, "_local_player", None), "id", None)
+    players = data.get("players", {})
+    if owner_id in players and getattr(game, "_local_player", None) is not None:
+        game._local_player._balance = players[owner_id].get(
+            "balance", game._local_player._balance
+        )

@@ -91,5 +91,4 @@ class Passenger(Entity):
 
     def pay(self):
         """Issue a fare payment to the player upon reaching the destination."""
-        self._location.train.player.add_money(4.28)
-        print("Payed")
+        self._location.train.credit_income()

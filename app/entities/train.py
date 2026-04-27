@@ -12,6 +12,14 @@ from app.entities.entity import Entity
 from app.player import Player
 from app.avatars.avatar import Avatar
 from app.core.node_graph import Graph
+from app.core.constants import (
+    MAINTENANCE_COST,
+    MAINTENANCE_DURATION_SECONDS,
+    MAINTENANCE_VISIT_MAX,
+    MAINTENANCE_VISIT_MIN,
+    PASSENGER_FARE,
+)
+import random
 
 STATION_DWELL_SECONDS = 2.0
 
@@ -89,6 +97,11 @@ class Train(Entity):
         self.navigation_path = []
         self.condition = 1
         self.time_at_station = 0
+        self.maintenance_progress = 0
+        self.city_visits_until_maintenance = random.randint(
+            MAINTENANCE_VISIT_MIN, MAINTENANCE_VISIT_MAX
+        )
+        self.needs_maintenance = False
         self.station = None
 
     def tick(self, dt):
@@ -106,16 +119,22 @@ class Train(Entity):
             )
             self._move_along_segment(dt)
         elif self.status == "Maintaining":
-            if self.condition >= 1:
+            self.maintenance_progress += dt / MAINTENANCE_DURATION_SECONDS
+            if self.maintenance_progress >= 1:
+                self.maintenance_progress = 0
                 self.condition = 1
+                self.needs_maintenance = False
+                self.city_visits_until_maintenance = random.randint(
+                    MAINTENANCE_VISIT_MIN, MAINTENANCE_VISIT_MAX
+                )
                 self.assign_to_line(self._line)
-            else:
-                self.update_condition(dt)
         elif self.status == "AtStation":
             if self.time_at_station >= 1:
                 self.status = "Running"
                 if self.station is not None:
                     self.station.remove_train(self)
+                if self.needs_maintenance:
+                    self.maintain_condition()
             else:
                 self.time_at_station += dt / STATION_DWELL_SECONDS
 
@@ -142,6 +161,14 @@ class Train(Entity):
             if new_cargo is None:
                 return new_cargo
         return new_cargo
+
+    def credit_income(self, amount=PASSENGER_FARE):
+        owner_id = getattr(self, "owner_id", None)
+        game = getattr(self._player, "game", None) or getattr(self, "game", None)
+        if game is not None:
+            game.credit_player(owner_id, amount)
+        elif self.player is not None:
+            self.player.add_money(amount)
 
     def add_cars(self, new_cars):
         """Append additional cars to the train and recalculate all car offsets.
@@ -215,14 +242,10 @@ class Train(Entity):
             else:
                 car.move_along_segment(self._cars[index - 1], dt)
 
-        self.update_condition(dt)
-        if self.condition <= 0 and self.status == "Running":
-            self.maintain_condition()
-        else:
-            if self._t > 1.0:
-                self._arrive_at(self._location.end)
-            elif self._t < 0.0:
-                self._arrive_at(self._location.start)
+        if self._t > 1.0:
+            self._arrive_at(self._location.end)
+        elif self._t < 0.0:
+            self._arrive_at(self._location.start)
 
     def find_car_offsets(self):
         """Recalculate the parametric t-delay offsets for all attached cars.
@@ -326,8 +349,21 @@ class Train(Entity):
         from app.entities.city import City
 
         if self.status == "Navigating":
-            if self.condition <= 0 and isinstance(node.reference, TrainDepot):
+            if self.needs_maintenance and isinstance(node.reference, TrainDepot):
+                owner_id = getattr(self, "owner_id", None)
+                game = getattr(self._player, "game", None) or getattr(self, "game", None)
+                if game is not None and not game.charge_player(
+                    owner_id, MAINTENANCE_COST, "maintenance"
+                ):
+                    self.status = "Idle"
+                    return
+                elif game is None and self.player is not None:
+                    if self.player._balance < MAINTENANCE_COST:
+                        self.status = "Idle"
+                        return
+                    self.player.add_money(-MAINTENANCE_COST)
                 self.status = "Maintaining"
+                self._speed = 0
             else:
                 self.status = "Running"
                 self._arrive_at(node)
@@ -339,6 +375,9 @@ class Train(Entity):
                 node.reference.add_train(self)
                 self.station = node.reference
                 self.time_at_station = 0
+                self.city_visits_until_maintenance -= 1
+                if self.city_visits_until_maintenance <= 0:
+                    self.needs_maintenance = True
             new_edge, new_global_bound, new_nav_bound = self.line.next_edge(
                 node, self._global_bound, self.station.center_node
             )
@@ -451,6 +490,8 @@ class Train(Entity):
     def maintain_condition(self):
         if self.find_nearest_depot():
             self.status = "Navigating"
+        else:
+            self.status = "Idle"
 
     def set_avatar(self, new_avatar):
         """Replace the train's avatar.

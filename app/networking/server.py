@@ -14,10 +14,18 @@ from app.networking.serialize import (
     serialize_tick,
     serialize_resync,
     serialize_reject,
+    serialize_economy_state,
     serialize_train_add,
     serialize_track_add,
     serialize_line_update,
 )
+from app.core.constants import (
+    STARTING_CASH,
+    TRACK_COST_PER_UNIT,
+    TRAIN_COSTS,
+    MAINTENANCE_COST,
+)
+from app.core.stock_market import Stock
 
 MessageHandler = Callable[[str, ServerConnection], Awaitable[Any] | Any]
 ConnectionHandler = Callable[[ServerConnection], Awaitable[Any] | Any]
@@ -39,9 +47,141 @@ CURSOR_COLORS = [
 
 
 def _log(event: str, message: str, *, debug: bool = True) -> None:
+    """Conditionally print a labeled debug message to stdout."""
     if debug and not DEBUG_NETWORK:
         return
     print(f"[server][{event}] {message}")
+
+
+class ServerEconomy:
+    def __init__(self) -> None:
+        """Initialise an empty economy with no registered players."""
+        self.players: dict[str, dict] = {}
+        self._order: list[str] = []
+        self.stock_market = Stock([])
+        self.revision = 0
+
+    def register_player(self, cid: str, name: str = "", color=None) -> None:
+        """Add a new player to the economy and stock market."""
+        if cid in self.players:
+            return
+        self._order.append(cid)
+        index = len(self._order) - 1
+        self.players[cid] = {
+            "id": cid,
+            "name": name or cid[:8],
+            "color": color,
+            "stock_index": index,
+            "balance": STARTING_CASH,
+            "net_worth": STARTING_CASH,
+            "track_spend": 0,
+            "train_spend": 0,
+            "maintenance_spend": 0,
+            "income": 0,
+        }
+        self._rebuild_stock_market()
+        self.revision += 1
+
+    def unregister_player(self, cid: str) -> None:
+        """Mark a player as disconnected without removing their ledger entry."""
+        # Keep departed players in the ledger so stock indices remain stable.
+        if cid in self.players:
+            self.players[cid]["connected"] = False
+            self.revision += 1
+
+    def charge(self, cid: str, amount: float, category: str = "spend") -> bool:
+        """Deduct amount from the player's balance; return False if funds are insufficient."""
+        player = self.players.get(cid)
+        if player is None or player["balance"] < amount:
+            return False
+        player["balance"] -= amount
+        player["net_worth"] -= amount
+        if category == "track":
+            player["track_spend"] += amount
+        elif category == "train":
+            player["train_spend"] += amount
+        elif category == "maintenance":
+            player["maintenance_spend"] += amount
+        self._sync_stock_finances()
+        self.revision += 1
+        return True
+
+    def credit(self, cid: str, amount: float) -> None:
+        """Add revenue to a player's balance and net worth."""
+        player = self.players.get(cid)
+        if player is None:
+            return
+        player["balance"] += amount
+        player["net_worth"] += amount
+        player["income"] += amount
+        self._sync_stock_finances()
+        self.revision += 1
+
+    def buy_stock(self, buyer_id: str, target_id: str, quantity: int) -> None:
+        """Execute a stock purchase between two registered players."""
+        buyer = self.players[buyer_id]["stock_index"]
+        target = self.players[target_id]["stock_index"]
+        self.stock_market.buy_stock(buyer, target, quantity)
+        self._pull_stock_finances()
+        self.revision += 1
+
+    def players_public(self) -> dict:
+        """Return a public-safe dict of all player records keyed by player ID."""
+        return {
+            cid: {
+                "id": cid,
+                "name": player["name"],
+                "color": player["color"],
+                "stock_index": player["stock_index"],
+                "balance": round(player["balance"], 2),
+                "net_worth": round(player["net_worth"], 2),
+                "connected": player.get("connected", True),
+            }
+            for cid, player in self.players.items()
+        }
+
+    def stocks_public(self) -> dict:
+        """Return current stock prices and the ownership matrix."""
+        prices = self.stock_market.set_prices()
+        return {
+            "prices": {
+                cid: round(prices[player["stock_index"]], 2)
+                for cid, player in self.players.items()
+            },
+            "ownership": self.stock_market.ownership,
+        }
+
+    def _rebuild_stock_market(self) -> None:
+        """Reconstruct the Stock model after a new player joins."""
+        old_order = list(self._order)
+        old_ownership = getattr(self.stock_market, "ownership", [])
+        finances = [
+            [self.players[cid]["net_worth"], self.players[cid]["balance"]]
+            for cid in self._order
+        ]
+        ownership = [
+            [50 if row == col else 0 for col in range(len(self._order))]
+            for row in range(len(self._order))
+        ]
+        for old_row, _ in enumerate(old_order[:-1]):
+            for old_col, _ in enumerate(old_order[:-1]):
+                if old_row < len(old_ownership) and old_col < len(old_ownership[old_row]):
+                    ownership[old_row][old_col] = old_ownership[old_row][old_col]
+        self.stock_market = Stock(finances, ownership)
+
+    def _sync_stock_finances(self) -> None:
+        """Push current balance and net-worth into the stock model."""
+        for cid in self._order:
+            index = self.players[cid]["stock_index"]
+            self.stock_market.net_worth[index] = self.players[cid]["net_worth"]
+            self.stock_market.cash[index] = self.players[cid]["balance"]
+
+    def _pull_stock_finances(self) -> None:
+        """Pull updated balance and net-worth from the stock model back into player records."""
+        for cid in self._order:
+            index = self.players[cid]["stock_index"]
+            self.players[cid]["net_worth"] = self.stock_market.net_worth[index]
+            self.players[cid]["balance"] = self.stock_market.cash[index]
 
 
 class WebSocketServer:
@@ -59,6 +199,7 @@ class WebSocketServer:
         on_connect: ConnectionHandler | None = None,
         on_disconnect: ConnectionHandler | None = None,
     ) -> None:
+        """Initialise the server with host, port, and optional lifecycle callbacks."""
         self.host = host
         self.port = port
         self._message_handler = message_handler
@@ -79,6 +220,7 @@ class WebSocketServer:
         self._game = game
 
     async def start(self) -> None:
+        """Begin accepting WebSocket connections."""
         if self._server is not None:
             raise RuntimeError("Server is already running.")
         self._server = await serve(
@@ -89,6 +231,7 @@ class WebSocketServer:
         )
 
     async def stop(self) -> None:
+        """Stop the server, cancel the tick loop, and clear all client state."""
         if self._server is None:
             raise RuntimeError("Server is not running.")
         if self._tick_task is not None:
@@ -100,6 +243,7 @@ class WebSocketServer:
         self._clients.clear()
 
     async def wait_closed(self) -> None:
+        """Block until the server has fully shut down."""
         if self._server is None:
             raise RuntimeError("Server is not running.")
         await self._server.wait_closed()
@@ -109,6 +253,7 @@ class WebSocketServer:
         self._tick_task = asyncio.create_task(self._tick_loop(ticks_per_second))
 
     async def _tick_loop(self, ticks_per_second: int) -> None:
+        """Broadcast serialized tick state to all clients at the given rate."""
         interval = 1 / ticks_per_second
         while True:
             await asyncio.sleep(interval)
@@ -119,12 +264,14 @@ class WebSocketServer:
             self._tick += 1
 
     async def send_to(self, client: ServerConnection, message: str) -> None:
+        """Send a message to a single client, removing it on failure."""
         try:
             await client.send(message)
         except Exception:
             self._clients.discard(client)
 
     async def broadcast(self, message: str) -> None:
+        """Send a message to every connected client concurrently."""
         if not self._clients:
             return
         await asyncio.gather(
@@ -133,6 +280,7 @@ class WebSocketServer:
         )
 
     async def broadcast_except(self, message: str, exclude: ServerConnection) -> None:
+        """Send a message to all clients except the specified one."""
         targets = [c for c in self._clients if c is not exclude]
         if not targets:
             return
@@ -146,6 +294,7 @@ class WebSocketServer:
         return {cid: self._tick - ack for cid, ack in self._client_acks.items()}
 
     async def _handle_client(self, websocket: ServerConnection) -> None:
+        """Manage the full lifecycle of a single client connection."""
         cid = str(uuid.uuid4())
         self._clients.add(websocket)
         self._client_ids[websocket] = cid
@@ -172,6 +321,10 @@ class WebSocketServer:
             async for message in websocket:
                 await self._route_message(message, websocket, cid)
         finally:
+            if self._on_disconnect is not None:
+                result = self._on_disconnect(websocket)
+                if asyncio.iscoroutine(result):
+                    await result
             self._clients.discard(websocket)
             self._client_ids.pop(websocket, None)
             self._client_acks.pop(cid, None)
@@ -179,12 +332,9 @@ class WebSocketServer:
             self._cursors.pop(cid, None)
             _log("disconnect", cid[:8])
             await self.broadcast(json.dumps({"type": "leave", "id": cid}))
-            if self._on_disconnect is not None:
-                result = self._on_disconnect(websocket)
-                if asyncio.iscoroutine(result):
-                    await result
 
     async def _route_message(self, message: str, sender: ServerConnection, cid: str) -> None:
+        """Dispatch an incoming client message to ack, resync, cursor, or action handlers."""
         data = json.loads(message)
         msg_type = data.get("type")
         msg_tick = data.get("tick", self._tick)
@@ -238,6 +388,7 @@ if __name__ == "__main__":
     from app.game import Game
 
     def _get_local_ip() -> str:
+        """Return this machine's LAN IP address."""
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.connect(("8.8.8.8", 80))
@@ -246,6 +397,7 @@ if __name__ == "__main__":
             return socket.gethostbyname(socket.gethostname())
 
     def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
+        """Euclidean distance between two (x, y) points."""
         return math.hypot(a[0] - b[0], a[1] - b[1])
 
     def _pick_position(
@@ -257,6 +409,7 @@ if __name__ == "__main__":
         attempts: int = 250,
         fallback_index: int = 0,
     ) -> tuple[int, int]:
+        """Pick a random position at least min_distance from all existing positions."""
         min_x, max_x, min_y, max_y = bounds
         for _ in range(attempts):
             pos = (rng.randint(min_x, max_x), rng.randint(min_y, max_y))
@@ -302,6 +455,7 @@ if __name__ == "__main__":
         city_positions: list[tuple[int, int]],
         player_index: int,
     ) -> tuple[int, int]:
+        """Pick a starting depot position far from existing depots and cities."""
         depot_positions = [depot.center_node.position for depot in game.depots]
         blockers = list(depot_positions)
         soft_blockers = city_positions
@@ -325,6 +479,7 @@ if __name__ == "__main__":
         )
 
     def _start_discovery_responder(server, local_ip: str, world_seed: int) -> None:
+        """Start a background UDP thread that answers LAN discovery broadcasts."""
         def _run() -> None:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -353,6 +508,7 @@ if __name__ == "__main__":
         threading.Thread(target=_run, daemon=True).start()
 
     async def _main() -> None:
+        """Set up the headless server, game world, and run the simulation loop."""
         # --- game setup (headless — no pygame init, no window) ---
         import os
         import pygame
@@ -366,13 +522,21 @@ if __name__ == "__main__":
         _log("world", f"seed={world_seed}", debug=False)
 
         game = Game(headless=True)
+        economy = ServerEconomy()
+        game.economy = economy
         city_positions = _setup_headless_map(game, rng)
 
         _player_count = 0
 
         async def on_connect(websocket: ServerConnection) -> None:
+            """Register a player, place their depot, and notify existing clients."""
             nonlocal _player_count
             owner_id = server._client_ids[websocket]
+            economy.register_player(
+                owner_id,
+                name=owner_id[:8],
+                color=server._client_colors[owner_id],
+            )
             pos = _pick_depot_position(rng, game, city_positions, _player_count)
             depot = game.place_new_depot(
                 None,
@@ -390,8 +554,30 @@ if __name__ == "__main__":
             await server.broadcast_except(
                 json.dumps(serialize_resync(game, server._tick)), websocket
             )
+            await broadcast_economy()
+
+        async def on_disconnect(websocket: ServerConnection) -> None:
+            """Unregister the player and broadcast the updated economy."""
+            cid = server._client_ids.get(websocket)
+            if cid is not None:
+                economy.unregister_player(cid)
+                await broadcast_economy()
+
+        async def send_economy(websocket: ServerConnection) -> None:
+            """Send the current economy state to a single client."""
+            cid = server._client_ids.get(websocket)
+            await server.send_to(
+                websocket,
+                json.dumps(serialize_economy_state(economy, server._tick, cid)),
+            )
+
+        async def broadcast_economy() -> None:
+            """Send the current economy state to all connected clients."""
+            for websocket in tuple(server._clients):
+                await send_economy(websocket)
 
         def latest_owned_line(owner_id: str):
+            """Return the most recently created line owned by owner_id."""
             return next(
                 (
                     line
@@ -402,6 +588,7 @@ if __name__ == "__main__":
             )
 
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
+            """Handle all client action messages and broadcast resulting state changes."""
             msg_type = data.get("type")
             packet = None
             if msg_type == "place_track":
@@ -415,10 +602,39 @@ if __name__ == "__main__":
                 elif "station_b" in data:
                     end_node = next((n for n in game.nodes if n.id == data["station_b"]), None)
                     if end_node:
+                        length = _distance(start_node.position, end_node.position)
+                        cost = TRACK_COST_PER_UNIT * length
+                        if not economy.charge(cid, cost, "track"):
+                            await server.send_to(
+                                sender,
+                                json.dumps(
+                                    serialize_reject(
+                                        server._tick,
+                                        msg_type,
+                                        f"not enough money for track (${cost:.0f})",
+                                    )
+                                ),
+                            )
+                            return
                         edge, _ = game.place_new_edge(start_node, end_node=end_node)
                         packet = serialize_track_add(edge, game, server._tick)
                         _log("track", f"{cid[:8]} {edge.id} existing endpoints")
                 else:
+                    end_pos = (data["x"], data["y"])
+                    length = _distance(start_node.position, end_pos)
+                    cost = TRACK_COST_PER_UNIT * length
+                    if not economy.charge(cid, cost, "track"):
+                        await server.send_to(
+                            sender,
+                            json.dumps(
+                                serialize_reject(
+                                    server._tick,
+                                    msg_type,
+                                    f"not enough money for track (${cost:.0f})",
+                                )
+                            ),
+                        )
+                        return
                     edge, _ = game.place_new_edge(start_node, (data["x"], data["y"]))
                     packet = serialize_track_add(edge, game, server._tick)
                     _log("track", f"{cid[:8]} {edge.id} new endpoint")
@@ -452,6 +668,28 @@ if __name__ == "__main__":
                         json.dumps(
                             serialize_reject(
                                 server._tick, msg_type, "depot belongs to another player"
+                            )
+                        ),
+                    )
+                    return
+                train_type = data.get("train_type", "EMD_E9")
+                train_cost = TRAIN_COSTS.get(train_type)
+                if train_cost is None:
+                    await server.send_to(
+                        sender,
+                        json.dumps(
+                            serialize_reject(server._tick, msg_type, "unknown train type")
+                        ),
+                    )
+                    return
+                if not economy.charge(cid, train_cost, "train"):
+                    await server.send_to(
+                        sender,
+                        json.dumps(
+                            serialize_reject(
+                                server._tick,
+                                msg_type,
+                                f"not enough money for train (${train_cost:.0f})",
                             )
                         ),
                     )
@@ -544,15 +782,46 @@ if __name__ == "__main__":
                     line.toggle_station(node)
                     packet = serialize_line_update(line, game, server._tick)
                     _log("line", f"{cid[:8]} toggled {node.id} on {line.id}")
+            elif msg_type == "buy_stock":
+                target_id = data.get("target_id")
+                quantity = int(data.get("quantity", 0))
+                if target_id not in economy.players:
+                    await server.send_to(
+                        sender,
+                        json.dumps(serialize_reject(server._tick, msg_type, "unknown stock target")),
+                    )
+                    return
+                if quantity <= 0:
+                    await server.send_to(
+                        sender,
+                        json.dumps(serialize_reject(server._tick, msg_type, "quantity must be positive")),
+                    )
+                    return
+                try:
+                    economy.buy_stock(cid, target_id, quantity)
+                except ValueError as exc:
+                    await server.send_to(
+                        sender,
+                        json.dumps(serialize_reject(server._tick, msg_type, str(exc))),
+                    )
+                    return
+                await broadcast_economy()
             else:
                 _log("action", f"{cid[:8]} unhandled action: {msg_type}", debug=False)
                 return
 
             if packet is not None:
                 await server.broadcast(json.dumps(packet))
+            if msg_type in ("place_track", "buy_train"):
+                await broadcast_economy()
 
         local_ip = _get_local_ip()
-        server = WebSocketServer(host="0.0.0.0", message_handler=on_message, on_connect=on_connect)
+        server = WebSocketServer(
+            host="0.0.0.0",
+            message_handler=on_message,
+            on_connect=on_connect,
+            on_disconnect=on_disconnect,
+        )
         server.attach_game(game)
         await server.start()
         await server.start_tick_loop(ticks_per_second=30)
@@ -563,9 +832,15 @@ if __name__ == "__main__":
         dt = 1 / 60
         lag_report_interval = int(60 * 10)  # every 10 seconds at 60 fps
         frame = 0
+        last_economy_revision = economy.revision
         while True:
             for train in game.trains:
                 train.tick(dt)
+            for city in game.cities:
+                city.tick(dt)
+            if economy.revision != last_economy_revision:
+                await broadcast_economy()
+                last_economy_revision = economy.revision
             frame += 1
             if frame % lag_report_interval == 0:
                 lag = server.get_lag_report()

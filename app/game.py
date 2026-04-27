@@ -7,6 +7,7 @@ from app.view import camera
 import pygame
 import math
 from app.player import Player
+from app.core.constants import TRACK_COST_PER_UNIT, PASSENGER_FARE, TRAIN_COSTS
 from app.core.node_graph import Node, Edge, Graph
 from app.entities.line import Line
 from app.entities.train import Train
@@ -78,11 +79,13 @@ class Game:
         self.lines = []
         self.depots = []
         self.cities = []
-        self.cost_per_unit_rail = 2
+        self.cost_per_unit_rail = TRACK_COST_PER_UNIT
+        self.economy = None
         self.last_node = None
         self.action = "Normal"
         self._remote_cursors: dict = {}
         self._last_tick: int = 0
+        self.economy_state = None
         self._cursor_font = None
         if not self._load_config():
             self._set_default_configs()
@@ -293,8 +296,14 @@ class Game:
                         self.make_new_line([])
                         made_new_line = True
                 elif keys[pygame.K_t]:
-                    self.add_test_train()
-                    self.trains[-1].assign_to_line(self.lines[-1])
+                    train_cost = TRAIN_COSTS["EMD_E9"]
+                    if self.charge_player(
+                        getattr(self._local_player, "id", None),
+                        train_cost,
+                        "train",
+                    ):
+                        self.add_test_train()
+                        self.trains[-1].assign_to_line(self.lines[-1])
 
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
@@ -353,6 +362,25 @@ class Game:
         new_train.add_cars([PassengerCar(new_train, PCar1(), depot) for i in range(5)])
         self.trains.append(new_train)
         return new_train
+
+    def charge_player(self, owner_id, amount, category="spend"):
+        """Try to charge a player by network owner id or the local player."""
+        if self.economy is not None and owner_id is not None:
+            return self.economy.charge(owner_id, amount, category)
+        if self._local_player is None:
+            return True
+        if self._local_player._balance < amount:
+            return False
+        self._local_player.add_money(-amount)
+        return True
+
+    def credit_player(self, owner_id, amount=PASSENGER_FARE):
+        """Credit a player by network owner id or the local player."""
+        if self.economy is not None and owner_id is not None:
+            self.economy.credit(owner_id, amount)
+            return
+        if self._local_player is not None:
+            self._local_player.add_money(amount)
 
     def place_new_node(self, position):
         """
