@@ -117,13 +117,14 @@ class WebSocketServer:
 
         await websocket.send(json.dumps({"type": "id", "id": cid}))
 
-        if self._game is not None:
-            await websocket.send(json.dumps(serialize_map(self._game)))
-
+        # on_connect runs first so it can modify game state before the map is sent
         if self._on_connect is not None:
             result = self._on_connect(websocket)
             if asyncio.iscoroutine(result):
                 await result
+
+        if self._game is not None:
+            await websocket.send(json.dumps(serialize_map(self._game)))
 
         try:
             async for message in websocket:
@@ -208,6 +209,21 @@ if __name__ == "__main__":
         game = Game(headless=True)
         _setup_headless_map(game)
 
+        _DEPOT_POSITIONS = [(200, 400), (800, 400), (500, 650), (1100, 400)]
+        _player_count = 0
+
+        async def on_connect(websocket: ServerConnection) -> None:
+            nonlocal _player_count
+            pos = _DEPOT_POSITIONS[_player_count % len(_DEPOT_POSITIONS)]
+            game.place_new_depot(None, pos)
+            _player_count += 1
+            # Notify already-connected clients of the new depot
+            await server.broadcast_except(
+                json.dumps(serialize_resync(game, server._tick)), websocket
+            )
+
+        _WORLD_ACTIONS = {"place_track", "place_city", "create_line", "toggle_station", "buy_train", "assign_train"}
+
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
             msg_type = data.get("type")
             if msg_type == "place_track":
@@ -240,9 +256,14 @@ if __name__ == "__main__":
                     game.lines[-1].toggle_station(node)
             else:
                 print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
+                return
+
+            # Broadcast fresh state to all clients after any world change
+            if msg_type in _WORLD_ACTIONS:
+                await server.broadcast(json.dumps(serialize_resync(game, server._tick)))
 
         local_ip = _get_local_ip()
-        server = WebSocketServer(host="0.0.0.0", message_handler=on_message)
+        server = WebSocketServer(host="0.0.0.0", message_handler=on_message, on_connect=on_connect)
         server.attach_game(game)
         await server.start()
         await server.start_tick_loop(ticks_per_second=20)

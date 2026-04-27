@@ -319,6 +319,7 @@ class Game:
             The primary nodes that define the line.
         """
         new_line = Line(main_nodes)
+        new_line.id = new_line.assign_id("Line")
         self.lines.append(new_line)
         if self._local_player is not None:
             self._local_player.lines.append(new_line)
