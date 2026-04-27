@@ -179,8 +179,10 @@ class Game:
 
                 # Draw toolbar over game and check for user interaction
                 toolbar_action = self._local_player.screen.top_toolbar(screen, events)
-                depot_button_action = self._local_player.screen.depot_press_button(screen, events, self._local_player.camera, self.depots)
-                
+                depot_button_action = self._local_player.screen.depot_press_button(
+                    screen, events, self._local_player.camera, self.depots
+                )
+
                 # Act based on user interaction
 
                 if depot_button_action == "depot":
@@ -282,7 +284,6 @@ class Game:
                 elif keys[pygame.K_t]:
                     self.add_test_train()
                     self.trains[-1].assign_to_line(self.lines[-1])
-                    
 
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
@@ -418,13 +419,17 @@ class Game:
             if pos is None:
                 continue
             render_info = train.avatar.rotate(pos, train.get_angle())
-            train_render_stack.append({"pos": render_info[1], "surface": render_info[0]})
+            train_render_stack.append(
+                {"pos": render_info[1], "surface": render_info[0]}
+            )
             for car in train.cars:
                 car_pos = car.get_position()
                 if car_pos is None:
                     continue
                 render_info = car.avatar.rotate(car_pos, car.get_angle())
-                train_render_stack.append({"pos": render_info[1], "surface": render_info[0]})
+                train_render_stack.append(
+                    {"pos": render_info[1], "surface": render_info[0]}
+                )
         return train_render_stack
 
     def compile_cursor_render_stack(self):
