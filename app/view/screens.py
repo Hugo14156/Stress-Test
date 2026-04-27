@@ -1,5 +1,6 @@
+"""UI screen helpers for the home, pause, quit, and depot menus."""
+
 import pygame
-from app.view.camera import Camera  
 
 
 class Screens:
@@ -126,15 +127,17 @@ class Screens:
 
         pygame.draw.rect(
             screen,
-            (60, 200, 80) if making_line else ((120, 120, 240) if line_hovered else (100, 150, 240)),
+            (
+                (60, 200, 80)
+                if making_line
+                else ((120, 120, 240) if line_hovered else (100, 150, 240))
+            ),
             line_button,
             border_radius=12,
         )
 
         text = pygame.font.SysFont("Trebuchet MS", 19).render(
-            "Confirm" if making_line else "Make\nLine",
-            True,
-            (255, 255, 255)
+            "Confirm" if making_line else "Make\nLine", True, (255, 255, 255)
         )
         screen.blit(text, text.get_rect(center=line_button.center))
 
@@ -262,16 +265,16 @@ class Screens:
     def depot_press_button(self, screen, events, camera, depots):
         """
         Checks if the player clicks on a depot's center node and displays a prompt to enter the depot.
-        
+
         Args:
             screen (pygame.Surface): The surface to draw the prompt on.
             events (list): A list of pygame events to handle user interactions.
             camera (Camera): The camera object to convert between screen and world coordinates.
             depots (list): A list of depot objects to check for interactions.
-            
+
         Returns:
             str: "depot" if the user clicks on a depot's center node and the prompt, None otherwise.
-            """
+        """
         mouse_pos = pygame.mouse.get_pos()
         world_mouse = camera.screen_to_world(*mouse_pos)
 
@@ -289,15 +292,15 @@ class Screens:
                         if event.button == 1:
                             return "depot"
         return None
-    
+
     def depot_screen(self, screen, events):
         """
         Displays the depot screen with options to buy trains and view the depot train list.
-        
+
         Args:
             screen (pygame.Surface): The surface to draw the depot screen on.
             events (list): A list of pygame events to handle user interactions.
-            
+
         Returns:
             str: "buy_EMD8" if the user clicks the buy EMD E8 button, "buy_EMD9" if the user clicks the buy EMD E9 button, "buy_ACS-64" if the user clicks the buy Siemens ACS-64 button, "return" if the user clicks the return to game button, "train_list" if the user clicks the view depot train list button, None otherwise.
         """
@@ -306,12 +309,7 @@ class Screens:
         overlay.fill((220, 200, 160, 120))
         screen.blit(overlay, (0, 0))
 
-        popup = pygame.Rect(
-            200,
-            200,
-            self.width - 400,
-            self.height - 400
-        )
+        popup = pygame.Rect(200, 200, self.width - 400, self.height - 400)
 
         pygame.draw.rect(screen, (235, 235, 235), popup, border_radius=18)
         pygame.draw.rect(screen, (40, 40, 40), popup, 4, border_radius=18)
@@ -329,12 +327,7 @@ class Screens:
         start_x = popup.centerx - total_width // 2 - 50
         y_pos = popup.y + 170
 
-        EMD8_button = pygame.Rect(
-            start_x,
-            y_pos,
-            button_width,
-            button_height
-        )
+        EMD8_button = pygame.Rect(start_x, y_pos, button_width, button_height)
 
         EMD8_hovered = EMD8_button.collidepoint(mouse_pos)
 
@@ -342,17 +335,14 @@ class Screens:
             screen,
             (50, 200, 60) if EMD8_hovered else (80, 220, 70),
             EMD8_button,
-            border_radius=12
+            border_radius=12,
         )
 
         text = self.button_font.render("Buy EMD E8", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=EMD8_button.center))
 
         EMD9_button = pygame.Rect(
-            start_x + button_width + gap,
-            y_pos,
-            button_width,
-            button_height
+            start_x + button_width + gap, y_pos, button_width, button_height
         )
 
         EMD9_hovered = EMD9_button.collidepoint(mouse_pos)
@@ -361,17 +351,14 @@ class Screens:
             screen,
             (50, 200, 60) if EMD9_hovered else (80, 220, 70),
             EMD9_button,
-            border_radius=12
+            border_radius=12,
         )
 
         text = self.button_font.render("Buy EMD E9", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=EMD9_button.center))
 
         siemens_button = pygame.Rect(
-            start_x + (button_width + gap) * 2,
-            y_pos,
-            button_width + 150,
-            button_height
+            start_x + (button_width + gap) * 2, y_pos, button_width + 150, button_height
         )
 
         siemens_hovered = siemens_button.collidepoint(mouse_pos)
@@ -380,7 +367,7 @@ class Screens:
             screen,
             (50, 200, 60) if siemens_hovered else (80, 220, 70),
             siemens_button,
-            border_radius=12
+            border_radius=12,
         )
 
         text = self.button_font.render("Buy Siemens ACS-64", True, (255, 255, 255))
@@ -390,7 +377,7 @@ class Screens:
             start_x + (button_width + gap) * 2,
             y_pos + 180,
             button_width + 150,
-            button_height
+            button_height,
         )
 
         return_hovered = return_button.collidepoint(mouse_pos)
@@ -399,17 +386,14 @@ class Screens:
             screen,
             (50, 80, 220) if return_hovered else (80, 110, 250),
             return_button,
-            border_radius=12
+            border_radius=12,
         )
 
         text = self.button_font.render("Return to Game", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=return_button.center))
 
         train_list_button = pygame.Rect(
-            start_x,
-            y_pos + 180,
-            button_width + 280,
-            button_height
+            start_x, y_pos + 180, button_width + 280, button_height
         )
 
         train_list_hovered = train_list_button.collidepoint(mouse_pos)
@@ -418,7 +402,7 @@ class Screens:
             screen,
             (50, 80, 220) if train_list_hovered else (80, 110, 250),
             train_list_button,
-            border_radius=12
+            border_radius=12,
         )
 
         text = self.button_font.render("View Depot Train List", True, (255, 255, 255))
@@ -434,10 +418,10 @@ class Screens:
 
                 if siemens_hovered:
                     return "buy_ACS-64"
-                
+
                 if return_hovered:
                     return "return"
-                
+
                 if train_list_hovered:
                     return "train_list"
         return None
@@ -445,7 +429,7 @@ class Screens:
     def purchase_complete(self, screen):
         """
         Displays a purchase complete screen after the player buys a train.
-        
+
         Args:
             screen (pygame.Surface): The surface to draw the purchase complete screen on.
 
@@ -456,12 +440,7 @@ class Screens:
         overlay.fill((110, 230, 100, 110))
         screen.blit(overlay, (0, 0))
 
-        popup = pygame.Rect(
-            200,
-            200,
-            self.width - 400,
-            self.height - 400
-        )
+        popup = pygame.Rect(200, 200, self.width - 400, self.height - 400)
 
         pygame.draw.rect(screen, (235, 235, 235), popup, border_radius=18)
         pygame.draw.rect(screen, (40, 40, 40), popup, 4, border_radius=18)
@@ -481,6 +460,8 @@ class Screens:
             None
         """
         cash = int(money)
-        pygame.draw.rect(screen, (80, 60, 40), (30, self.height - 86, 310, 55), border_radius=12)
+        pygame.draw.rect(
+            screen, (80, 60, 40), (30, self.height - 86, 310, 55), border_radius=12
+        )
         money_text = self.button_font.render(f"Money: ${cash}", True, (255, 255, 255))
         screen.blit(money_text, (50, self.height - 80))

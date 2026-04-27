@@ -1,6 +1,6 @@
 # Stress Test
 
-Stress Test is a 2D train logistics game built with Python and Pygame. The project simulates railway construction, train movement, and transport flow on a node-and-edge network, with early multiplayer networking components and supporting tools under active development.
+Stress Test is a 2D train logistics game built with Python and Pygame. The current repository focuses on the single-player gameplay loop, track-building, route navigation, train movement, and the UI scaffolding around those systems.
 
 ## Team
 
@@ -9,44 +9,56 @@ Stress Test is a 2D train logistics game built with Python and Pygame. The proje
 - Spencer
 - Aryan
 
-## Project Overview
+## Overview
 
-The game loop is centered around building track, managing train routes, and visualizing movement in a large scrolling world. Core systems are designed around graph-based pathing and simulation-friendly entities.
+The game is organized around a node-and-edge world graph. Players place depots and cities, build track between nodes, assign trains to lines, and watch trains move across the network while passengers and cargo are handled by the entity layer.
 
-Current gameplay foundation includes:
+Current gameplay features include:
 
-- Interactive home, pause, and quit screens.
-- Camera movement and zoom controls.
-- Track placement via node and edge creation.
-- Depot placement and train spawning foundations.
-- Train and car movement over connected graph edges.
+- Home, pause, quit, and depot screens.
+- Camera movement and zoom.
+- Track placement on a graph of nodes and edges.
+- Depot and city placement.
+- Train, car, and station entity modeling.
 - Render stack composition for world objects.
-- Standalone websocket server/client prototypes in the networking module.
+- Script-based smoke tests and small visual validation helpers.
 
 ## Current State
 
-This is an active in-progress project. Some modules, tools, and test files are placeholders or partially implemented. The current focus appears to be core gameplay systems and architecture scaffolding for future expansion.
+This codebase is still in active development. Some modules are fully functional, while others remain scaffolded or partially implemented.
+
+The strongest areas right now are:
+
+- Core graph and pathfinding logic in `app/core/`.
+- Train, car, station, city, line, and cargo entities in `app/entities/`.
+- Sprite and avatar classes in `app/avatars/`.
+- Basic UI and camera systems in `app/view/`.
+
+Some parts are still intentionally unfinished:
+
+- A few files under `tools/` are placeholders.
+- Several files under `tests/` are empty or script-style validation helpers rather than full automated tests.
+- A handful of type-check warnings still exist in the codebase and are unrelated to the docstring cleanup.
 
 ## Tech Stack
 
 - Python
-- pygame-ce (rendering, input, game loop)
-- websockets (multiplayer/network prototypes)
-- Supporting scientific and utility packages listed in requirements.txt
+- pygame-ce for rendering, input, and the main loop
+- Pygame-based sprite composition and surface rotation
+- Utility and test tooling listed in `requirements.txt`
 
 ## Repository Layout
 
-- main.py: Application entry point.
-- app/game.py: Main game controller and frame loop.
-- app/core/: Shared simulation systems (graph, constants, events, state/time scaffolding).
-- app/entities/: Gameplay domain entities (train, cars, stations, lines, depot, passengers/cargo).
-- app/avatars/: Render avatars/sprites for trains, track, stations, and cars.
-- app/view/: Camera and menu/screen UI code.
-- app/networking/: Websocket server/client and a multiplayer test window.
-- tests/: Test and experimental validation scripts.
-- tools/: Project utility scripts (currently scaffolded).
-- assets/: Audio, maps, shaders, fonts, and sprite resources.
-- save/: Runtime and config persistence artifacts.
+- `main.py`: Application entry point.
+- `app/game.py`: Main game controller and frame loop.
+- `app/core/`: Graph and pathfinding primitives.
+- `app/entities/`: Gameplay entities such as trains, cars, stations, cities, lines, passengers, and cargo.
+- `app/avatars/`: Sprite and avatar classes for world objects.
+- `app/view/`: Camera and menu/screen UI helpers.
+- `tests/`: Smoke tests, validation scripts, and placeholder test files.
+- `tools/`: Utility entry points for build and editor workflows.
+- `assets/`: Sprite and other art resources.
+- `save/`: Runtime configuration and persistence data.
 
 ## Setup
 
@@ -94,39 +106,22 @@ The game opens a Pygame window and starts at the home screen.
 
 ## Controls
 
-- W, A, S, D: Move camera.
-- 1: Zoom in.
-- 2: Zoom out.
+- `W`, `A`, `S`, `D`: Move camera.
+- `1`: Zoom in.
+- `2`: Zoom out.
 - Top toolbar buttons:
-	- Pause (||)
-	- Quit (X)
-	- Place Track (toggle track placement mode)
+  - Pause (`||`)
+  - Quit (`X`)
+  - Place Track
+  - Make Line
 
-## Multiplayer Prototype
+## Experimental Multiplayer
 
-The networking package includes a websocket prototype that is separate from the main game loop integration.
-
-Server:
-
-```powershell
-python -m app.networking.server
-```
-
-Client:
-
-```powershell
-python -m app.networking.client
-```
-
-What it currently does:
-
-- Assigns each connecting client a unique ID.
-- Broadcasts position updates between clients.
-- Renders connected players as colored dots in a test window.
+The separate networking branch contains an experimental multiplayer mode. It is not part of this repository's default single-player loop, but it exists as a prototype for client/server-style play and networked position updates.
 
 ## Testing
 
-Test files exist under tests, but coverage is currently mixed between placeholders and script-based validation.
+The `tests/` folder currently mixes placeholder files, small smoke tests, and a few visual scripts.
 
 Run available tests/scripts with:
 
@@ -134,7 +129,7 @@ Run available tests/scripts with:
 python -m pytest tests
 ```
 
-If pytest is not installed in your environment, install it first:
+If `pytest` is not installed in your environment, install it first:
 
 ```powershell
 pip install pytest
@@ -148,9 +143,9 @@ python tests/test_train_render.py
 
 ## Development Notes
 
-- The project includes strong type-hint and docstring intent across many modules.
+- Many modules already have class and method docstrings.
 - Several files are intentionally scaffolded for future implementation.
-- requirements.txt is encoded in UTF-16 in this repository state; keep that in mind if editing dependency files with external tooling.
+- `requirements.txt` is encoded in UTF-16 in this repository state, so keep that in mind if editing dependency files with external tooling.
 
 ## Contributing
 
@@ -162,4 +157,4 @@ python tests/test_train_render.py
 ## License
 
 This project is released under the MIT License.
-See LICENSE for full terms.
+See `LICENSE` for full terms.

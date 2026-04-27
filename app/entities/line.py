@@ -6,7 +6,7 @@ a sequence of stations. Handles navigation path calculation between
 stations, edge traversal, and distance queries for train routing logic.
 """
 
-from app.core.node_graph import Node, Edge, Graph
+from app.core.node_graph import Node, Graph
 
 
 class Line:

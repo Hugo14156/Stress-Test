@@ -8,7 +8,6 @@ passengers travelling across the network.
 
 import random
 
-# from app.entities.station import Station
 from app.avatars.stations.city_avatar import CityAvatar
 
 
@@ -198,9 +197,11 @@ class City:
                 ]
 
     def add_line(self, new_line):
+        """Register a new line that serves this city."""
         if new_line not in self._lines:
             self._lines.append(new_line)
 
     def remove_line(self, target_line):
+        """Remove a line from this city's list of served routes."""
         if target_line in self._lines:
             self._lines.remove(target_line)

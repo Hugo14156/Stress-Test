@@ -1,3 +1,5 @@
+"""Graph primitives for nodes, edges, and shortest-path routing."""
+
 import heapq
 import pygame
 from typing import Optional
@@ -36,6 +38,7 @@ class Node:
         pygame.draw.circle(self.surface, (255, 255, 255), (20, 20), 20)
 
     def check_collision(self, position):
+        """Return True if the given world position lies within the node radius."""
         dx = position[0] - self.position[0]
         dy = position[1] - self.position[1]
         distance = math.hypot(dx, dy)  # Euclidean distance
@@ -118,6 +121,7 @@ class Edge:
         return -math.degrees(angle_rad) % 360
 
     def change_color(self, color):
+        """Update the track line color and rebuild the rotated surfaces."""
         self.avatar.change_color(color)
         self.full_surface, self.line_surface, self.render_position = self.rotate()
 
@@ -162,10 +166,12 @@ class Edge:
             raise ValueError("portion_traveled must be an integer or float")
 
     def add_train(self, new_train):
+        """Register a train as currently occupying this edge."""
         if new_train not in self.trains:
             self.trains.append(new_train)
 
     def remove_train(self, target_train):
+        """Remove a train from this edge if it is currently registered."""
         if target_train in self.trains:
             self.trains.remove(target_train)
 

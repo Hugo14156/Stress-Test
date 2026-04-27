@@ -1,3 +1,5 @@
+"""Camera utilities for converting between world and screen coordinates."""
+
 import pygame
 
 

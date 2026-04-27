@@ -2,20 +2,16 @@
 
 import os
 import tkinter as tk
-from app.avatars.trains.EMD_E8 import EMD_E8
-from app.view import camera
-import pygame
 import math
+
+import pygame
+
 from app.player import Player
-from app.core.node_graph import Node, Edge, Graph
+from app.core.node_graph import Node, Edge
 from app.entities.line import Line
 from app.entities.train import Train
-from app.entities.car import Car
-from app.entities.cargo_car import CargoCar
 from app.entities.passenger_car import PassengerCar
-from app.avatars.train_cars.test_car import TestCar
 from app.entities.train_depot import TrainDepot
-from app.avatars.trains.test_train import TestTrain
 from app.avatars.trains.EMD_E8 import EMD_E8
 from app.avatars.trains.EMD_E9 import EMD_E9
 from app.entities.city import City

@@ -42,7 +42,6 @@ class Train:
             ValueError: If player is not a Player instance.
         """
         from app.entities.car import Car
-        from app.avatars.avatar import Avatar
 
         # from app.entities.station import Station
 

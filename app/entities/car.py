@@ -1,10 +1,4 @@
-"""
-Passenger car entity for trains in Stress Test.
-
-Defines the Car class, which represents a single passenger-carrying car
-attached to a train. Handles passenger loading and unloading, position
-tracking along track segments, and following the lead vehicle.
-"""
+"""Base car entity used by passenger and cargo rolling stock."""
 
 
 class Car:
@@ -98,4 +92,5 @@ class Car:
 
     @property
     def location(self):
+        """Edge: The track segment currently occupied by the car."""
         return self._location

@@ -1,11 +1,14 @@
+"""Avatar implementation for city stations."""
+
 from app.avatars.station_avatar import StationAvatar
-from pathlib import Path
 import pygame
-import math
 
 
 class CityAvatar(StationAvatar):
+    """Drawable avatar for a city station."""
+
     def __init__(self):
+        """Create the placeholder city surface used in the current build."""
         super().__init__()
         self.scale = 50
         self.surface = pygame.Surface((self.scale, self.scale), pygame.SRCALPHA)
@@ -32,10 +35,7 @@ class CityAvatar(StationAvatar):
         # self.image = image
 
     def point_in_city(self, point, rect_center):
-        """
-        Rough check if a point is inside a hexagon using distance to center.
-        Works well for click detection.
-        """
+        """Return True when a point lies within the clickable city area."""
         px, py = point
         rx, ry = rect_center
         dx = abs(px - rx) / self.scale
