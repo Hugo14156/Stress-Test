@@ -155,7 +155,13 @@ class WebSocketServer:
             return
 
         if msg_type == "cursor":
-            self._cursors[cid] = {"id": cid, "x": data["x"], "y": data["y"]}
+            self._cursors[cid] = {
+                "id": cid,
+                "x": data["x"],
+                "y": data["y"],
+                "name": data.get("name", ""),
+                "color": data.get("color", [255, 255, 0]),
+            }
             return
 
         # Reject actions that are too old
@@ -183,9 +189,24 @@ if __name__ == "__main__":
             s.connect(("8.8.8.8", 80))
             return s.getsockname()[0]
 
+    def _setup_headless_map(game) -> None:
+        """Populate the server's initial world with a depot and cities."""
+        game.place_new_depot(None, (100, 100))
+        game.place_new_city((500, 50))
+        game.place_new_city((800, 150))
+        game.place_new_city((1200, 120))
+
     async def _main() -> None:
         # --- game setup (headless — no pygame init, no window) ---
+        import os
+        import pygame
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+        pygame.init()
+        pygame.display.set_mode((1, 1))
+
         game = Game(headless=True)
+        _setup_headless_map(game)
 
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
             msg_type = data.get("type")
@@ -195,8 +216,7 @@ if __name__ == "__main__":
                     (data["x"], data["y"]),
                 )
             elif msg_type == "place_city":
-                game.place_new_node((data["x"], data["y"]))
-                # City creation will be wired here once City placement is implemented
+                game.place_new_city((data["x"], data["y"]))
             elif msg_type == "buy_train":
                 depot = next((d for d in game.depots if d.id == data["depot_id"]), None)
                 if depot:
@@ -206,6 +226,8 @@ if __name__ == "__main__":
                 line = next((l for l in game.lines if l.id == data["line_id"]), None)
                 if train and line:
                     train.assign_to_line(line)
+            elif msg_type == "create_line":
+                game.make_new_line([])
             else:
                 print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
 
@@ -218,9 +240,17 @@ if __name__ == "__main__":
 
         # --- headless simulation loop at 60 fps ---
         dt = 1 / 60
+        lag_report_interval = int(60 * 10)  # every 10 seconds at 60 fps
+        frame = 0
         while True:
             for train in game.trains:
                 train.tick(dt)
+            frame += 1
+            if frame % lag_report_interval == 0:
+                lag = server.get_lag_report()
+                if lag:
+                    entries = ", ".join(f"{cid[:8]}={ticks}t" for cid, ticks in lag.items())
+                    print(f"[server] lag report — {entries}")
             await asyncio.sleep(dt)
 
     asyncio.run(_main())

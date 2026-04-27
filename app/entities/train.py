@@ -68,7 +68,7 @@ class Train(Entity):
         else:
             raise ValueError("avatar must be an Avatar object.")
 
-        if isinstance(player, Player):
+        if player is None or isinstance(player, Player):
             self._player = player
         else:
             raise ValueError("player must be a Player object.")
@@ -251,6 +251,13 @@ class Train(Entity):
             tuple[float, float]: The (x, y) world coordinates at the current t-value.
         """
         return self._location.give_position(self._t)
+
+    def get_angle(self) -> float:
+        """Return the visual facing angle accounting for direction of travel."""
+        if self._location is None:
+            return self._network_angle
+        angle = self._location.angle
+        return angle if self._nav_bound == 1 else angle - 180
 
     def _arrive_at(self, node):
         """Handle the train reaching a node boundary on its current segment.

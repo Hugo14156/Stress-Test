@@ -10,9 +10,10 @@ import random
 
 # from app.entities.station import Station
 from app.avatars.stations.city_avatar import CityAvatar
+from app.entities.entity import Entity
 
 
-class City:
+class City(Entity):
     """A passenger-generating station on the track network.
 
     Spawns passengers over time for each unique city connection available
@@ -59,6 +60,8 @@ class City:
             avatar (Avatar): The graphical representation of this city.
             name (str): The display name of this city.
         """
+        super().__init__()
+        self.id = super().assign_id("City")
         self._name = random.choice(self.cities)
         self._trains = []
         self._lines = []

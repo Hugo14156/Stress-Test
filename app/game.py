@@ -72,6 +72,7 @@ class Game:
         self.action = "Normal"
         self._remote_cursors: dict = {}
         self._last_tick: int = 0
+        self._cursor_font = None
         if not self._load_config():
             self._set_default_configs()
 
@@ -318,21 +319,16 @@ class Game:
         """
         new_line = Line(main_nodes)
         self.lines.append(new_line)
-        self._local_player.lines.append(new_line)
+        if self._local_player is not None:
+            self._local_player.lines.append(new_line)
 
     def add_test_train(self):
-        """
-        Spawn a test train on the given edge.
-
-        Parameters
-        ----------
-        edge : Edge
-            The edge where the train will be placed.
-        """
-        new_train = Train(self.depots[0], [], EMD_E9(), self._local_player)
-        new_train.add_cars(
-            [PassengerCar(new_train, PCar1(), self.depots[0]) for i in range(5)]
-        )
+        """Spawn a test train at the first available depot."""
+        if not self.depots:
+            return
+        depot = self.depots[0]
+        new_train = Train(depot, [], EMD_E9(), self._local_player)
+        new_train.add_cars([PassengerCar(new_train, PCar1(), depot) for i in range(5)])
         self.trains.append(new_train)
 
     def place_new_node(self, position):
@@ -372,11 +368,13 @@ class Game:
         """
         if end_node is not None:
             new_edge = Edge(start_node, end_node)
+            new_edge.id = f"trk_{len(self.edges)}"
             self.edges.append(new_edge)
             return new_edge, None
         else:
             end_node = self.place_new_node(end_node_position)
             new_edge = Edge(start_node, end_node)
+            new_edge.id = f"trk_{len(self.edges)}"
             self.edges.append(new_edge)
             return new_edge, end_node
 
@@ -414,32 +412,33 @@ class Game:
     def compile_train_render_stack(self):
         train_render_stack = []
         for train in self.trains:
-            render_info = (
-                train.avatar.rotate(train.get_position(), train.location.angle)
-                if train.nav_bound == 1
-                else train.avatar.rotate(
-                    train.get_position(), train.location.angle - 180
-                )
-            )
-            train_render_stack.append(
-                {"pos": render_info[1], "surface": render_info[0]}
-            )
+            pos = train.get_position()
+            if pos is None:
+                continue
+            render_info = train.avatar.rotate(pos, train.get_angle())
+            train_render_stack.append({"pos": render_info[1], "surface": render_info[0]})
             for car in train.cars:
                 car_pos = car.get_position()
                 if car_pos is None:
                     continue
                 render_info = car.avatar.rotate(car_pos, car.get_angle())
-                train_render_stack.append(
-                    {"pos": render_info[1], "surface": render_info[0]}
-                )
+                train_render_stack.append({"pos": render_info[1], "surface": render_info[0]})
         return train_render_stack
 
     def compile_cursor_render_stack(self):
+        if self._cursor_font is None:
+            self._cursor_font = pygame.font.SysFont(None, 16)
         stack = []
-        for cursor_id, (x, y) in self._remote_cursors.items():
-            surface = pygame.Surface((12, 12), pygame.SRCALPHA)
-            pygame.draw.circle(surface, (255, 255, 0), (6, 6), 6)
-            stack.append({"pos": (x - 6, y - 6), "surface": surface})
+        for cursor_id, cursor in self._remote_cursors.items():
+            x, y = cursor["x"], cursor["y"]
+            color = tuple(cursor.get("color", (255, 255, 0)))
+            name = cursor.get("name", "")
+            dot = pygame.Surface((12, 12), pygame.SRCALPHA)
+            pygame.draw.circle(dot, color, (6, 6), 6)
+            stack.append({"pos": (x - 6, y - 6), "surface": dot})
+            if name:
+                label = self._cursor_font.render(name, True, color)
+                stack.append({"pos": (x + 8, y - 8), "surface": label})
         return stack
 
     def compile_depot_render_stack(self):
@@ -485,6 +484,7 @@ class Game:
             + self.compile_train_render_stack()
             + self.compile_depot_render_stack()
             + self.compile_city_render_stack()
+            + self.compile_cursor_render_stack()
         )
 
         return stack

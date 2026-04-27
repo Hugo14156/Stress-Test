@@ -62,6 +62,13 @@ class Car(Entity):
         """
         return self._location.give_position(self._t)
 
+    def get_angle(self) -> float:
+        """Return the visual facing angle accounting for direction of travel."""
+        if self._location is None:
+            return self._network_angle
+        angle = self._location.angle
+        return angle if self._bound == 1 else angle - 180
+
     def move_along_segment(self, leader, dt):
         """Advance the car's position along its track segment for one frame.
 

@@ -50,6 +50,17 @@ class _NetworkCar:
         return self._network_angle
 
 
+class _NetworkCity:
+    """Minimal city stand-in on the client — holds position and avatar for rendering."""
+
+    def __init__(self, city_id: str, name: str, node):
+        from app.avatars.stations.city_avatar import CityAvatar
+        self.id = city_id
+        self._name = name
+        self.center_node = node
+        self.avatar = CityAvatar()
+
+
 # ---------------------------------------------------------------------------
 # Server -> Client: serialize game state into packet dicts
 # ---------------------------------------------------------------------------
@@ -113,8 +124,8 @@ def _serialize_track(edge, game) -> dict:
 def _serialize_city(city) -> dict:
     return {
         "id": city.id,
-        "x": city._node.position[0],
-        "y": city._node.position[1],
+        "x": city.center_node.position[0],
+        "y": city.center_node.position[1],
         "name": city._name,
     }
 
@@ -144,20 +155,18 @@ def _serialize_train_static(train) -> dict:
 
 def _serialize_train_position(train) -> dict:
     x, y = train.get_position()
-    angle = train.location.angle if train.location else 0.0
-    return {"id": train.id, "x": round(x, 2), "y": round(y, 2), "angle": round(angle, 4)}
+    return {"id": train.id, "x": round(x, 2), "y": round(y, 2), "angle": round(train.get_angle(), 4)}
 
 
 def _serialize_car_position(car) -> dict:
     x, y = car.get_position()
-    angle = car._location.angle if car._location else 0.0
-    return {"id": car.id, "x": round(x, 2), "y": round(y, 2), "angle": round(angle, 4)}
+    return {"id": car.id, "x": round(x, 2), "y": round(y, 2), "angle": round(car.get_angle(), 4)}
 
 
 def _find_station_id(node, game) -> str:
     """Return the ID of whichever city or depot sits on this node."""
     for city in getattr(game, "cities", []):
-        if city._node is node:
+        if city.center_node is node:
             return city.id
     for depot in getattr(game, "depots", []):
         if depot.center_node is node:
@@ -196,7 +205,7 @@ def apply_tick(data: dict, game) -> bool:
             car._position = (entry["x"], entry["y"])
             car._network_angle = entry.get("angle", 0.0)
 
-    game._remote_cursors = {c["id"]: (c["x"], c["y"]) for c in data.get("cursors", [])}
+    game._remote_cursors = {c["id"]: c for c in data.get("cursors", [])}
 
     return not desync
 
@@ -214,6 +223,8 @@ def apply_map(data: dict, game):
     game.nodes.clear()
     game.edges.clear()
     game.trains.clear()
+    if hasattr(game, "cities"):
+        game.cities.clear()
 
     # Build id->Node map so tracks can look up their endpoints
     node_by_id: dict[str, Node] = {}
@@ -223,6 +234,8 @@ def apply_map(data: dict, game):
         node.id = city_data["id"]
         game.nodes.append(node)
         node_by_id[city_data["id"]] = node
+        city = _NetworkCity(city_data["id"], city_data.get("name", ""), node)
+        game.cities.append(city)
 
     for depot_data in data.get("depots", []):
         node = Node((depot_data["x"], depot_data["y"]))
@@ -246,3 +259,20 @@ def apply_map(data: dict, game):
 
     if "tick" in data:
         game._last_tick = data["tick"]
+
+    # Apply positions when present (resync packet overlays train/car positions)
+    train_map = {t.id: t for t in game.trains}
+    for entry in data.get("trains", []):
+        if "x" in entry:
+            train = train_map.get(entry["id"])
+            if train:
+                train._position = (entry["x"], entry["y"])
+                train._network_angle = entry.get("angle", 0.0)
+
+    car_map = {car.id: car for t in game.trains for car in t.cars}
+    for entry in data.get("cars", []):
+        if "x" in entry:
+            car = car_map.get(entry["id"])
+            if car:
+                car._position = (entry["x"], entry["y"])
+                car._network_angle = entry.get("angle", 0.0)

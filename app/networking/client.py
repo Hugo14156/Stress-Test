@@ -30,6 +30,11 @@ class WebSocketClient:
         self._game = None
         self._own_id: str | None = None
         self._ticks_received: int = 0
+        self._map_queue = None  # if set, map/resync packets are queued here instead of applied directly
+
+    def attach_map_queue(self, map_queue) -> None:
+        """Provide a thread-safe queue to defer map/resync application to the main thread."""
+        self._map_queue = map_queue
 
     def attach_game(self, game) -> None:
         """Attach the local game instance that incoming state will be applied to."""
@@ -73,7 +78,9 @@ class WebSocketClient:
             self._own_id = data["id"]
 
         elif msg_type in ("map", "resync"):
-            if self._game is not None:
+            if self._map_queue is not None:
+                self._map_queue.put(data)
+            elif self._game is not None:
                 apply_map(data, self._game)
 
         elif msg_type == "tick":
@@ -109,9 +116,15 @@ class WebSocketClient:
         """Send a client action packet. Caller is responsible for setting 'tick'."""
         await self.send(json.dumps(action))
 
-    async def send_cursor(self, x: float, y: float, tick: int) -> None:
-        """Send the player's current cursor position in world coordinates."""
-        await self.send(json.dumps({"type": "cursor", "tick": tick, "x": round(x, 2), "y": round(y, 2)}))
+    async def send_cursor(
+        self, x: float, y: float, tick: int, name: str = "", color: tuple = (255, 255, 0)
+    ) -> None:
+        """Send the player's cursor position, name, and color in world coordinates."""
+        await self.send(json.dumps({
+            "type": "cursor", "tick": tick,
+            "x": round(x, 2), "y": round(y, 2),
+            "name": name, "color": list(color),
+        }))
 
     async def recv(self) -> str:
         if self._connection is None:
@@ -135,9 +148,17 @@ if __name__ == "__main__":
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from app.game import Game
+    from app.networking.serialize import apply_map
 
-    server_ip = input("Enter server IP address: ").strip()
-    uri = f"ws://{server_ip}:8765"
+    import os
+    server_ip = os.environ.get("STRESS_TEST_SERVER_IP") or input("Enter server IP address: ").strip()
+    # Accept bare IP, IP:port, or a full ws:// URI
+    if server_ip.startswith("ws://"):
+        uri = server_ip
+    elif ":" in server_ip:
+        uri = f"ws://{server_ip}"
+    else:
+        uri = f"ws://{server_ip}:8765"
 
     game = Game()
     client = WebSocketClient(uri)
@@ -145,6 +166,9 @@ if __name__ == "__main__":
 
     # Main thread puts action dicts here; networking thread drains and sends them
     action_queue: queue.Queue = queue.Queue()
+    # Map/resync packets are queued here and applied on the main thread (pygame safety)
+    map_queue: queue.Queue = queue.Queue()
+    client.attach_map_queue(map_queue)
 
     async def _networking() -> None:
         await client.connect()
@@ -158,7 +182,11 @@ if __name__ == "__main__":
             tick = game._last_tick
             mouse_pos = pygame.mouse.get_pos()
             world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
-            await client.send_cursor(world_pos[0], world_pos[1], tick)
+            await client.send_cursor(
+                world_pos[0], world_pos[1], tick,
+                name=game._local_player._name,
+                color=game._local_player.color,
+            )
             await asyncio.sleep(1 / 20)
 
     def _run_networking() -> None:
@@ -177,6 +205,10 @@ if __name__ == "__main__":
 
     running = True
     while running:
+        # Apply any pending map/resync packets (deferred from networking thread)
+        while not map_queue.empty():
+            apply_map(map_queue.get_nowait(), game)
+
         events = pygame.event.get()
         keys = pygame.key.get_pressed()
         mouse = pygame.mouse.get_pressed(num_buttons=3)
@@ -196,7 +228,7 @@ if __name__ == "__main__":
             game._local_player.camera.move(keys)
 
             # render only — no train.tick() calls, server drives simulation
-            render_stack = game.compile_render_stack(game.action == "PlacingTrack")
+            render_stack = game.compile_render_stack(game.action == "PlacingTrack", False)
             game._local_player.camera.draw(screen, render_stack)
 
             toolbar_action = game._local_player.screen.top_toolbar(screen, events)
