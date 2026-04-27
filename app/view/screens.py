@@ -20,7 +20,7 @@ class Screens:
 
         pygame.font.init()
 
-        self.title_font = pygame.font.SysFont("Trebuchet MS", 72, bold=True)
+        self.title_font = pygame.font.SysFont("Trebuchet MS", 80, bold=True)
         self.subtitle_font = pygame.font.SysFont("Trebuchet MS", 30, italic=True)
         self.button_font = pygame.font.SysFont("Trebuchet MS", 36)
 
@@ -36,12 +36,12 @@ class Screens:
             str: "start" if the user clicks the start button, None otherwise.
         """
 
-        screen.fill((55, 101, 179))
-        pygame.draw.rect(screen, (20, 40, 180), screen.get_rect(), 15)
+        screen.fill((255, 180, 90))
+        pygame.draw.rect(screen, (250, 130, 70), screen.get_rect(), 15)
 
-        title_text = self.title_font.render("Stress Test", True, (237, 198, 30))
+        title_text = self.title_font.render("Stress Test", True, (255, 255, 255))
         title_rect = title_text.get_rect(
-            center=(self.width // 2, self.height // 3 + 60)
+            center=(self.width // 2, self.height // 3 + 100)
         )
         screen.blit(title_text, title_rect)
 
@@ -53,7 +53,7 @@ class Screens:
 
         pygame.draw.rect(
             screen,
-            (70, 160, 70) if hovered else (50, 130, 50),
+            (100, 190, 100) if hovered else (80, 160, 80),
             start_button,
             border_radius=12,
         )
@@ -76,7 +76,7 @@ class Screens:
             events (list): A list of pygame events to handle user interactions.
 
         Returns:
-            str: "pause" if the user clicks the pause button, "quit" if the user clicks the quit button, None otherwise.
+            str: "pause" if the user clicks the pause button, "quit" if the user clicks the quit button, "place_track" if the user clicks the place track button, "make_line" if the user clicks the make line button, None otherwise.
         """
         mouse_pos = pygame.mouse.get_pos()
 
@@ -160,19 +160,19 @@ class Screens:
         Returns:
             str: "resume" if the user clicks the resume button, None otherwise.
         """
-        screen.fill((55, 101, 179))
-        pygame.draw.rect(screen, (20, 40, 180), screen.get_rect(), 15)
+        screen.fill((255, 180, 90))
+        pygame.draw.rect(screen, (250, 130, 70), screen.get_rect(), 15)
 
-        pause_text = self.title_font.render("Paused", True, (237, 198, 30))
+        pause_text = self.title_font.render("Paused", True, (255, 255, 255))
         pause_rect = pause_text.get_rect(
-            center=(self.width // 2, self.height // 3 + 60)
+            center=(self.width // 2, self.height // 3 + 100)
         )
         screen.blit(pause_text, pause_rect)
 
         mouse_pos = pygame.mouse.get_pos()
 
         resume_game_button = pygame.Rect(
-            self.width // 2 - 150, self.height // 3 + 130, 300, 70
+            self.width // 2 - 150, self.height // 3 + 170, 300, 70
         )
         resume_hovered = resume_game_button.collidepoint(mouse_pos)
 
@@ -204,26 +204,26 @@ class Screens:
         Returns:
             str: "yes" if the user clicks the yes button, "no" if the user clicks the no button, None otherwise.
         """
-        screen.fill((55, 101, 179))
-        pygame.draw.rect(screen, (20, 40, 180), screen.get_rect(), 15)
+        screen.fill((255, 180, 90))
+        pygame.draw.rect(screen, (250, 130, 70), screen.get_rect(), 15)
 
         quit_text = self.title_font.render(
-            "Are you sure you want to exit?", True, (237, 198, 30)
+            "Are you sure you want to exit?", True, (255, 255, 255)
         )
-        quit_rect = quit_text.get_rect(center=(self.width // 2, self.height // 3 + 40))
+        quit_rect = quit_text.get_rect(center=(self.width // 2, self.height // 3 + 80))
         screen.blit(quit_text, quit_rect)
 
         warning_text = self.subtitle_font.render(
-            "All in-game progress will be lost.", True, (230, 230, 255)
+            "All in-game progress will be lost.", True, (255, 240, 210)
         )
         warning_rect = warning_text.get_rect(
-            center=(self.width // 2, self.height // 3 + 110)
+            center=(self.width // 2, self.height // 3 + 150)
         )
         screen.blit(warning_text, warning_rect)
 
         mouse_pos = pygame.mouse.get_pos()
 
-        yes_button = pygame.Rect(self.width // 2 - 220, self.height // 3 + 170, 100, 70)
+        yes_button = pygame.Rect(self.width // 2 - 220, self.height // 3 + 210, 100, 70)
         yes_hovered = yes_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
@@ -236,7 +236,7 @@ class Screens:
         text = self.button_font.render("Yes", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=yes_button.center))
 
-        no_button = pygame.Rect(self.width // 2 - 90, self.height // 3 + 170, 300, 70)
+        no_button = pygame.Rect(self.width // 2 - 90, self.height // 3 + 210, 300, 70)
         no_hovered = no_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
@@ -258,6 +258,18 @@ class Screens:
         return None
 
     def depot_press_button(self, screen, events, camera, depots):
+        """
+        Checks if the player clicks on a depot's center node and displays a prompt to enter the depot.
+        
+        Args:
+            screen (pygame.Surface): The surface to draw the prompt on.
+            events (list): A list of pygame events to handle user interactions.
+            camera (Camera): The camera object to convert between screen and world coordinates.
+            depots (list): A list of depot objects to check for interactions.
+            
+        Returns:
+            str: "depot" if the user clicks on a depot's center node and the prompt, None otherwise.
+            """
         mouse_pos = pygame.mouse.get_pos()
         world_mouse = camera.screen_to_world(*mouse_pos)
 
@@ -277,6 +289,17 @@ class Screens:
         return None
     
     def depot_screen(self, screen, events):
+        """
+        Displays the depot screen with options to buy trains and view the depot train list.
+        
+        Args:
+            screen (pygame.Surface): The surface to draw the depot screen on.
+            events (list): A list of pygame events to handle user interactions.
+            
+        Returns:
+            str: "buy_EMD8" if the user clicks the buy EMD E8 button, "buy_EMD9" if the user clicks the buy EMD E9 button, "buy_ACS-64" if the user clicks the buy Siemens ACS-64 button, "return" if the user clicks the return to game button, "train_list" if the user clicks the view depot train list button, None otherwise.
+        """
+
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((220, 200, 160, 120))
         screen.blit(overlay, (0, 0))
@@ -380,6 +403,25 @@ class Screens:
         text = self.button_font.render("Return to Game", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=return_button.center))
 
+        train_list_button = pygame.Rect(
+            start_x,
+            y_pos + 180,
+            button_width + 280,
+            button_height
+        )
+
+        train_list_hovered = train_list_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (50, 80, 220) if train_list_hovered else (80, 110, 250),
+            train_list_button,
+            border_radius=12
+        )
+
+        text = self.button_font.render("View Depot Train List", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=train_list_button.center))
+
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if EMD8_hovered:
@@ -393,4 +435,23 @@ class Screens:
                 
                 if return_hovered:
                     return "return"
+                
+                if train_list_hovered:
+                    return "train_list"
         return None
+
+    def player_money(self, screen, money):
+        """
+        Displays the player's current money on the screen.
+
+        Args:
+            screen (pygame.Surface): The surface to draw the player's money on.
+            self.local_player (Player): The local player object containing the money attribute.
+
+        Returns:
+            None
+        """
+        cash = int(money)
+        pygame.draw.rect(screen, (80, 60, 40), (30, self.height - 86, 260, 55), border_radius=12)
+        money_text = self.button_font.render(f"Money: ${cash}", True, (255, 255, 255))
+        screen.blit(money_text, (50, self.height - 80))

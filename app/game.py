@@ -170,7 +170,7 @@ class Game:
                 # Draw toolbar over game and check for user interaction
                 toolbar_action = self._local_player.screen.top_toolbar(screen, events)
                 depot_button_action = self._local_player.screen.depot_press_button(screen, events, self._local_player.camera, self.depots)
-                
+                self._local_player.screen.player_money(screen, self._local_player._balance)
                 # Act based on user interaction
 
                 if depot_button_action == "depot":
