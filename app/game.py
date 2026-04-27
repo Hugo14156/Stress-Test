@@ -11,12 +11,14 @@ from app.entities.line import Line
 from app.entities.train import Train
 from app.entities.car import Car
 from app.entities.cargo_car import CargoCar
+from app.entities.passenger_car import PassengerCar
 from app.avatars.train_cars.test_car import TestCar
 from app.entities.train_depot import TrainDepot
 from app.avatars.trains.test_train import TestTrain
 from app.avatars.trains.EMD_E8 import EMD_E8
 from app.avatars.trains.EMD_E9 import EMD_E9
 from app.entities.city import City
+from app.avatars.train_cars.passenger_car_1 import PCar1
 
 
 class Game:
@@ -150,11 +152,11 @@ class Game:
 
                 # Tick all trains
                 for train in self.trains:
-                    train.tick(1 / self._fps)
+                    train.tick(5 / self._fps)
 
                 # Tick all Cities
                 for city in self.cities:
-                    city.tick(1 / self._fps)
+                    city.tick(5 / self._fps)
 
                 # Compile render stack of this frame
                 render_stack = self.compile_render_stack(
@@ -305,7 +307,7 @@ class Game:
         """
         new_train = Train(self.depots[0], [], EMD_E9(), self._local_player)
         new_train.add_cars(
-            [CargoCar(new_train, TestCar(), self.depots[0]) for i in range(5)]
+            [PassengerCar(new_train, PCar1(), self.depots[0]) for i in range(5)]
         )
         self.trains.append(new_train)
 
@@ -389,7 +391,7 @@ class Game:
         for train in self.trains:
             render_info = (
                 train.avatar.rotate(train.get_position(), train.location.angle)
-                if train.bound == 1
+                if train.nav_bound == 1
                 else train.avatar.rotate(
                     train.get_position(), train.location.angle - 180
                 )

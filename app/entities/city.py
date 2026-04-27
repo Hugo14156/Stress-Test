@@ -127,7 +127,6 @@ class City:
         new_passengers = []
         for connection in self.unique_connections:
             if random.random() <= self._spawn_rate * dt:
-                print("Made New Passenger")
                 new_passengers.append(
                     Passenger(self, target_location=connection.reference)
                 )
@@ -169,13 +168,20 @@ class City:
                 for passenger in self._passengers
                 if passenger.check_valid_train(target_train)
             ]
-            remaining_passengers = target_train.board(candidate_passengers)
-            self._passengers = [
-                passenger
-                for passenger in self._passengers
-                if passenger not in candidate_passengers
-                or passenger in remaining_passengers
-            ]
+            remaining_passengers = target_train.load(candidate_passengers)
+            if remaining_passengers is None:
+                self._passengers = [
+                    passenger
+                    for passenger in self._passengers
+                    if passenger not in candidate_passengers
+                ]
+            else:
+                self._passengers = [
+                    passenger
+                    for passenger in self._passengers
+                    if (passenger not in candidate_passengers)
+                    or (passenger in remaining_passengers)
+                ]
         else:
             for train in self._trains:
                 candidate_passengers = [

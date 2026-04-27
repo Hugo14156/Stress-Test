@@ -58,7 +58,9 @@ class Passenger:
         Returns:
             bool: True if the train's line includes the passenger's destination.
         """
-        return self._target_location in train.line().stations()
+        return self._target_location in [
+            station.reference for station in train.line.stations
+        ]
 
     def check_valid_city(self, city):
         """Check whether the given city is this passenger's destination.
@@ -81,4 +83,5 @@ class Passenger:
 
     def pay(self):
         """Issue a fare payment to the player upon reaching the destination."""
-        self._location.player.add_money(4.28)
+        self._location.train.player.add_money(4.28)
+        print("Payed")

@@ -14,6 +14,9 @@ class Player:
         self._balance = 5000
         self.color = color
 
+    def add_money(self, money):
+        self._balance += money
+
     @property
     def game(self):
         return self._game

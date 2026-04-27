@@ -118,7 +118,6 @@ class Edge:
         return -math.degrees(angle_rad) % 360
 
     def change_color(self, color):
-        print(color)
         self.avatar.change_color(color)
         self.full_surface, self.line_surface, self.render_position = self.rotate()
 

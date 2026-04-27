@@ -100,7 +100,7 @@ class Line:
             i += 1
         return distance
 
-    def next_edge(self, current_node, bound):
+    def next_edge(self, current_node, bound, last_station=None):
         """Return the next edge and travel direction from a given node.
 
         Handles direction reversal at the endpoints of non-looping lines,
@@ -115,18 +115,39 @@ class Line:
             tuple[Edge, int]: The next Edge to travel along and the updated
                 bound direction after any reversal.
         """
-        node_index = self.navigation_nodes.index(current_node)
+
+        if (
+            last_station is None
+            or len(self.navigation_nodes) <= 2
+            or current_node == last_station
+        ):
+            nav_nodes = self.navigation_nodes
+        elif bound == 1:
+            nav_nodes = self.navigation_nodes[
+                self.navigation_nodes.index(last_station) + 1 :
+            ]
+        else:
+            nav_nodes = self.navigation_nodes[
+                : self.navigation_nodes.index(last_station)
+            ]
+
+        node_index = nav_nodes.index(current_node)
+
         if self._main_nodes[0] != self._main_nodes[-1]:
             if node_index == 0:
                 bound = 1
-            elif node_index == len(self.navigation_nodes) - 1:
+            elif node_index == len(nav_nodes) - 1:
                 bound = -1
-        elif node_index == len(self.navigation_nodes) - 1:
+
+        elif node_index == len(nav_nodes) - 1:
             node_index = 0
-        next_node = self.navigation_nodes[node_index + bound]
+        next_node = nav_nodes[node_index + bound]
         for edge in current_node.edges:
-            if edge.start == next_node or edge.end == next_node:
-                return edge, bound
+            if edge.start == next_node:
+                return edge, bound, -1
+
+            elif edge.end == next_node:
+                return edge, bound, 1
 
     def toggle_station(self, station):
         from app.entities.city import City

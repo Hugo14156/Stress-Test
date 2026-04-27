@@ -70,11 +70,11 @@ class Car:
             dt (float): Delta time in seconds since the last frame.
         """
         if self.train.location == self._location:
-            if self.train.bound == 1:
+            if self.train.nav_bound == 1:
                 self._t = leader._t - self._t_delay
             else:
                 self._t = leader._t + self._t_delay
-            self._bound = self.train.bound
+            self._bound = self.train.nav_bound
         else:
             self._t += self._bound * self.train.speed * dt / self._location.length
             if self._t > 1.0:

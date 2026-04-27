@@ -28,7 +28,7 @@ class PCar1(CarAvatar):
             / "cars"
             / "car_1.png"
         )
-        scale = 30
+        scale = 60
         image = pygame.image.load(str(image_path)).convert_alpha()
         scaled_size = (image.get_width() // scale, image.get_height() // scale)
         image = pygame.transform.smoothscale(image, scaled_size)
@@ -41,3 +41,4 @@ class PCar1(CarAvatar):
         self.surface.blit(image, image_rect)
         self.image = image
         self.mass = 50000  # in kg
+        self.passenger_capacity = 50
