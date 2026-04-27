@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -23,6 +24,9 @@ ConnectionHandler = Callable[[ServerConnection], Awaitable[Any] | Any]
 
 # How many ticks behind a client action is allowed to be before rejection
 MAX_TICK_AGE = 60
+DISCOVERY_PORT = 8766
+DISCOVERY_MESSAGE = "stress-test-discovery-v1"
+DEBUG_NETWORK = os.environ.get("STRESS_TEST_DEBUG", "1") != "0"
 
 CURSOR_COLORS = [
     [255, 80, 80],
@@ -32,6 +36,12 @@ CURSOR_COLORS = [
     [210, 120, 255],
     [255, 140, 70],
 ]
+
+
+def _log(event: str, message: str, *, debug: bool = True) -> None:
+    if debug and not DEBUG_NETWORK:
+        return
+    print(f"[server][{event}] {message}")
 
 
 class WebSocketServer:
@@ -143,6 +153,7 @@ class WebSocketServer:
         self._client_colors[cid] = CURSOR_COLORS[
             (len(self._client_colors)) % len(CURSOR_COLORS)
         ]
+        _log("connect", f"{cid[:8]} color={self._client_colors[cid]}")
 
         await websocket.send(
             json.dumps({"type": "id", "id": cid, "color": self._client_colors[cid]})
@@ -166,6 +177,7 @@ class WebSocketServer:
             self._client_acks.pop(cid, None)
             self._client_colors.pop(cid, None)
             self._cursors.pop(cid, None)
+            _log("disconnect", cid[:8])
             await self.broadcast(json.dumps({"type": "leave", "id": cid}))
             if self._on_disconnect is not None:
                 result = self._on_disconnect(websocket)
@@ -209,30 +221,136 @@ class WebSocketServer:
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as exc:
-                print(f"[server] action failed for {cid[:8]} {msg_type}: {exc}")
+                _log("reject", f"{cid[:8]} {msg_type}: {exc}", debug=False)
                 reject = serialize_reject(self._tick, msg_type, str(exc))
                 await self.send_to(sender, json.dumps(reject))
 
 
 if __name__ == "__main__":
+    import math
+    import random
     import socket
     import sys
+    import threading
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from app.game import Game
 
     def _get_local_ip() -> str:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except OSError:
+            return socket.gethostbyname(socket.gethostname())
 
-    def _setup_headless_map(game) -> None:
-        """Populate the server's initial world with a depot and cities."""
-        game.place_new_depot(None, (100, 100))
-        game.place_new_city((500, 50))
-        game.place_new_city((800, 150))
-        game.place_new_city((1200, 120))
+    def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
+        return math.hypot(a[0] - b[0], a[1] - b[1])
+
+    def _pick_position(
+        rng: random.Random,
+        existing: list[tuple[float, float]],
+        *,
+        bounds: tuple[int, int, int, int],
+        min_distance: float,
+        attempts: int = 250,
+        fallback_index: int = 0,
+    ) -> tuple[int, int]:
+        min_x, max_x, min_y, max_y = bounds
+        for _ in range(attempts):
+            pos = (rng.randint(min_x, max_x), rng.randint(min_y, max_y))
+            if all(_distance(pos, other) >= min_distance for other in existing):
+                return pos
+
+        fallback_positions = [
+            (min_x, min_y),
+            (max_x, min_y),
+            (min_x, max_y),
+            (max_x, max_y),
+            ((min_x + max_x) // 2, min_y),
+            ((min_x + max_x) // 2, max_y),
+            (min_x, (min_y + max_y) // 2),
+            (max_x, (min_y + max_y) // 2),
+        ]
+        return fallback_positions[fallback_index % len(fallback_positions)]
+
+    def _setup_headless_map(game, rng: random.Random) -> list[tuple[int, int]]:
+        """Populate the server's initial multiplayer world with random cities."""
+        city_positions: list[tuple[int, int]] = []
+        city_count = rng.randint(15, 20)
+        for index in range(city_count):
+            pos = _pick_position(
+                rng,
+                city_positions,
+                bounds=(300, 3200, 120, 1900),
+                min_distance=320,
+                fallback_index=index,
+            )
+            city_positions.append(pos)
+            rotation = rng.randrange(0, 360)
+            game.place_new_city(pos, rotation=rotation)
+            _log(
+                "world",
+                f"city {index + 1}/{city_count} at {pos} rotation={rotation}",
+            )
+        return city_positions
+
+    def _pick_depot_position(
+        rng: random.Random,
+        game,
+        city_positions: list[tuple[int, int]],
+        player_index: int,
+    ) -> tuple[int, int]:
+        depot_positions = [depot.center_node.position for depot in game.depots]
+        blockers = list(depot_positions)
+        soft_blockers = city_positions
+        bounds = (180, 3400, 160, 2100)
+        for _ in range(300):
+            pos = (
+                rng.randint(bounds[0], bounds[1]),
+                rng.randint(bounds[2], bounds[3]),
+            )
+            far_from_depots = all(_distance(pos, other) >= 520 for other in blockers)
+            far_from_cities = all(_distance(pos, other) >= 260 for other in soft_blockers)
+            if far_from_depots and far_from_cities:
+                return pos
+
+        return _pick_position(
+            rng,
+            blockers,
+            bounds=bounds,
+            min_distance=420,
+            fallback_index=player_index,
+        )
+
+    def _start_discovery_responder(server, local_ip: str, world_seed: int) -> None:
+        def _run() -> None:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind(("", DISCOVERY_PORT))
+                    _log(
+                        "discovery",
+                        f"listening on udp://0.0.0.0:{DISCOVERY_PORT}",
+                        debug=False,
+                    )
+                    while True:
+                        data, address = sock.recvfrom(1024)
+                        if data.decode("utf-8", errors="ignore") != DISCOVERY_MESSAGE:
+                            continue
+                        payload = {
+                            "type": "stress_test_server",
+                            "host": local_ip,
+                            "port": server.port,
+                            "players": len(server._clients),
+                            "seed": world_seed,
+                        }
+                        sock.sendto(json.dumps(payload).encode("utf-8"), address)
+            except OSError as exc:
+                _log("discovery", f"unavailable: {exc}", debug=False)
+
+        threading.Thread(target=_run, daemon=True).start()
 
     async def _main() -> None:
         # --- game setup (headless — no pygame init, no window) ---
@@ -243,21 +361,29 @@ if __name__ == "__main__":
         pygame.init()
         pygame.display.set_mode((1, 1))
 
-        game = Game(headless=True)
-        _setup_headless_map(game)
+        world_seed = random.randrange(1_000_000_000)
+        rng = random.Random(world_seed)
+        _log("world", f"seed={world_seed}", debug=False)
 
-        _DEPOT_POSITIONS = [(200, 400), (800, 400), (500, 650), (1100, 400)]
+        game = Game(headless=True)
+        city_positions = _setup_headless_map(game, rng)
+
         _player_count = 0
 
         async def on_connect(websocket: ServerConnection) -> None:
             nonlocal _player_count
-            pos = _DEPOT_POSITIONS[_player_count % len(_DEPOT_POSITIONS)]
             owner_id = server._client_ids[websocket]
-            game.place_new_depot(
+            pos = _pick_depot_position(rng, game, city_positions, _player_count)
+            depot = game.place_new_depot(
                 None,
                 pos,
                 owner_id=owner_id,
                 owner_color=server._client_colors[owner_id],
+            )
+            _log(
+                "connect",
+                f"{owner_id[:8]} depot={depot.id} pos={pos} color={server._client_colors[owner_id]}",
+                debug=False,
             )
             _player_count += 1
             # Notify already-connected clients of the new depot
@@ -281,21 +407,33 @@ if __name__ == "__main__":
             if msg_type == "place_track":
                 start_node = next((n for n in game.nodes if n.id == data["station_a"]), None)
                 if start_node is None:
-                    print(f"[server] place_track: unknown node id {data.get('station_a')!r}")
+                    _log(
+                        "reject",
+                        f"place_track unknown node id {data.get('station_a')!r}",
+                        debug=False,
+                    )
                 elif "station_b" in data:
                     end_node = next((n for n in game.nodes if n.id == data["station_b"]), None)
                     if end_node:
                         edge, _ = game.place_new_edge(start_node, end_node=end_node)
                         packet = serialize_track_add(edge, game, server._tick)
+                        _log("track", f"{cid[:8]} {edge.id} existing endpoints")
                 else:
                     edge, _ = game.place_new_edge(start_node, (data["x"], data["y"]))
                     packet = serialize_track_add(edge, game, server._tick)
+                    _log("track", f"{cid[:8]} {edge.id} new endpoint")
             elif msg_type == "place_city":
-                game.place_new_city((data["x"], data["y"]))
+                rotation = rng.randrange(0, 360)
+                game.place_new_city((data["x"], data["y"]), rotation=rotation)
                 packet = serialize_resync(game, server._tick)
+                _log(
+                    "world",
+                    f"{cid[:8]} placed city at {(data['x'], data['y'])} rotation={rotation}",
+                )
             elif msg_type == "buy_train":
                 depot = next((d for d in game.depots if d.id == data["depot_id"]), None)
                 if depot is None:
+                    _log("reject", f"{cid[:8]} buy_train unknown depot", debug=False)
                     await server.send_to(
                         sender,
                         json.dumps(
@@ -304,6 +442,11 @@ if __name__ == "__main__":
                     )
                     return
                 if getattr(depot, "owner_id", None) != cid:
+                    _log(
+                        "reject",
+                        f"{cid[:8]} buy_train depot belongs to {getattr(depot, 'owner_id', None)}",
+                        debug=False,
+                    )
                     await server.send_to(
                         sender,
                         json.dumps(
@@ -319,6 +462,7 @@ if __name__ == "__main__":
                     train.owner_color = server._client_colors.get(cid)
                     line = latest_owned_line(cid)
                     if line is None:
+                        _log("train", f"{cid[:8]} {train.id} parked: no owned line")
                         await server.send_to(
                             sender,
                             json.dumps(
@@ -328,6 +472,7 @@ if __name__ == "__main__":
                             ),
                         )
                     elif not line.stations:
+                        _log("train", f"{cid[:8]} {train.id} parked: empty line {line.id}")
                         await server.send_to(
                             sender,
                             json.dumps(
@@ -339,7 +484,17 @@ if __name__ == "__main__":
                     else:
                         try:
                             train.assign_to_line(line)
+                            _log(
+                                "train",
+                                f"{cid[:8]} {train.id} assigned to {line.id}",
+                                debug=False,
+                            )
                         except ValueError as exc:
+                            _log(
+                                "reject",
+                                f"{cid[:8]} train cannot reach line {line.id}: {exc}",
+                                debug=False,
+                            )
                             await server.send_to(
                                 sender,
                                 json.dumps(
@@ -377,17 +532,20 @@ if __name__ == "__main__":
                         )
                         return
                     packet = serialize_resync(game, server._tick)
+                    _log("train", f"{cid[:8]} assigned {train.id} to {line.id}")
             elif msg_type == "create_line":
                 game.make_new_line([], owner_id=cid)
                 packet = serialize_line_update(game.lines[-1], game, server._tick)
+                _log("line", f"{cid[:8]} created {game.lines[-1].id}")
             elif msg_type == "toggle_station":
                 node = next((n for n in game.nodes if n.id == data.get("node_id")), None)
                 line = latest_owned_line(cid)
                 if node and line:
                     line.toggle_station(node)
                     packet = serialize_line_update(line, game, server._tick)
+                    _log("line", f"{cid[:8]} toggled {node.id} on {line.id}")
             else:
-                print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
+                _log("action", f"{cid[:8]} unhandled action: {msg_type}", debug=False)
                 return
 
             if packet is not None:
@@ -398,6 +556,7 @@ if __name__ == "__main__":
         server.attach_game(game)
         await server.start()
         await server.start_tick_loop(ticks_per_second=30)
+        _start_discovery_responder(server, local_ip, world_seed)
         print(f"[server] listening on ws://{local_ip}:8765 — Ctrl+C to stop")
 
         # --- headless simulation loop at 60 fps ---
@@ -412,7 +571,7 @@ if __name__ == "__main__":
                 lag = server.get_lag_report()
                 if lag:
                     entries = ", ".join(f"{cid[:8]}={ticks}t" for cid, ticks in lag.items())
-                    print(f"[server] lag report — {entries}")
+                    _log("lag", entries, debug=False)
             await asyncio.sleep(dt)
 
     asyncio.run(_main())

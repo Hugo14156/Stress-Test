@@ -18,7 +18,7 @@ class Line(Entity):
     moving along the line in either direction.
     """
 
-    def __init__(self, player=None, nodes=None, owner_id=None):
+    def __init__(self, player=None, nodes=None, owner_id=None, color=None):
         """Initialise the line and compute its navigation path.
 
         Args:
@@ -28,6 +28,7 @@ class Line(Entity):
                 objects defining the main stations on this line. If None, the line
                 starts empty.
             owner_id: Optional stable network client ID for the line owner.
+            color: Optional RGB color used when rendering this line overlay.
 
         Raises:
             ValueError: If nodes is not a list or tuple.
@@ -51,7 +52,7 @@ class Line(Entity):
         self.graph = Graph()
         self.navigation_nodes = []
         self.edges = []
-        self.color = (255, 0, 0)
+        self.color = tuple(color) if color is not None else (255, 0, 0)
         self.player = player
         self.owner_id = owner_id or getattr(player, "id", None)
         if self._main_nodes != []:

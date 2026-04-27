@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import socket
 from queue import Empty
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -16,6 +18,40 @@ MessageHandler = Callable[[str], Awaitable[Any] | Any]
 ACK_INTERVAL = 5
 ACTION_POLL_HZ = 60
 CURSOR_SEND_HZ = 15
+DISCOVERY_PORT = 8766
+DISCOVERY_MESSAGE = "stress-test-discovery-v1"
+DISCOVERY_TIMEOUT_SECONDS = 1.0
+DEBUG_NETWORK = os.environ.get("STRESS_TEST_DEBUG", "1") != "0"
+
+
+def _log(event: str, message: str, *, debug: bool = True) -> None:
+    if debug and not DEBUG_NETWORK:
+        return
+    print(f"[client][{event}] {message}")
+
+
+def discover_server(timeout: float = DISCOVERY_TIMEOUT_SECONDS) -> dict | None:
+    """Find a LAN Stress Test server via UDP broadcast."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.settimeout(timeout)
+        try:
+            sock.sendto(
+                DISCOVERY_MESSAGE.encode("utf-8"),
+                ("255.255.255.255", DISCOVERY_PORT),
+            )
+            data, address = sock.recvfrom(2048)
+        except OSError:
+            return None
+
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except json.JSONDecodeError:
+        return None
+    if payload.get("type") != "stress_test_server":
+        return None
+    payload.setdefault("host", address[0])
+    return payload
 
 
 class WebSocketClient:
@@ -62,6 +98,7 @@ class WebSocketClient:
         if self._connection is not None:
             raise RuntimeError("Client is already connected.")
         self._connection = await connect(self.uri, compression=None)
+        _log("connect", f"connected to {self.uri}", debug=False)
 
     async def disconnect(self) -> None:
         if self._connection is None:
@@ -95,6 +132,11 @@ class WebSocketClient:
                 self._game._local_player.color = tuple(
                     data.get("color", self._game._local_player.color)
                 )
+            _log(
+                "connect",
+                f"id={self._own_id[:8]} color={data.get('color')}",
+                debug=False,
+            )
 
         elif msg_type in ("map", "resync"):
             if self._map_queue is not None:
@@ -117,14 +159,17 @@ class WebSocketClient:
                 await self._send_ack(data.get("tick", 0))
 
         elif msg_type == "reject":
-            print(
-                f"[client] action rejected: {data.get('action')} — {data.get('reason')}"
+            _log(
+                "reject",
+                f"{data.get('action')}: {data.get('reason')}",
+                debug=False,
             )
 
         elif msg_type == "leave":
             if self._game is not None:
                 cursors = getattr(self._game, "_remote_cursors", {})
                 cursors.pop(data.get("id"), None)
+            _log("leave", str(data.get("id", ""))[:8])
 
         if self._message_handler is not None:
             result = self._message_handler(message)
@@ -137,7 +182,7 @@ class WebSocketClient:
         try:
             await self._connection.send(message)
         except Exception as exc:
-            print(f"[client] disconnected while sending: {exc}")
+            _log("disconnect", f"while sending: {exc}", debug=False)
             self._connection = None
 
     async def send_action(self, action: dict) -> None:
@@ -190,15 +235,34 @@ if __name__ == "__main__":
     from app.game import Game
     from app.networking.serialize import apply_map, apply_delta
 
-    import os
+    server_ip = os.environ.get("STRESS_TEST_SERVER_IP")
+    server_port = 8765
+    if server_ip:
+        _log("discovery", f"using configured server {server_ip}", debug=False)
+    else:
+        _log("discovery", "searching LAN...", debug=False)
+        discovered = discover_server()
+        if discovered is not None:
+            server_ip = str(discovered.get("host", ""))
+            server_port = int(discovered.get("port", 8765))
+            _log(
+                "discovery",
+                (
+                    f"found {server_ip}:{server_port} "
+                    f"players={discovered.get('players')} seed={discovered.get('seed')}"
+                ),
+                debug=False,
+            )
+        else:
+            _log("discovery", "no server found; falling back to manual IP", debug=False)
+            server_ip = input("Enter server LAN IP (e.g. 192.168.1.5): ").strip()
 
-    server_ip = (
-        os.environ.get("STRESS_TEST_SERVER_IP")
-        or input("Enter server LAN IP (e.g. 192.168.1.5): ").strip()
-    )
     # Strip any accidental ws:// prefix or port the user may have pasted
-    server_ip = server_ip.removeprefix("ws://").split(":")[0]
-    uri = f"ws://{server_ip}:8765"
+    server_ip = server_ip.removeprefix("ws://")
+    if ":" in server_ip:
+        server_ip, raw_port = server_ip.split(":", 1)
+        server_port = int(raw_port)
+    uri = f"ws://{server_ip}:{server_port}"
 
     game = Game()
     client = WebSocketClient(uri)
@@ -298,7 +362,11 @@ if __name__ == "__main__":
                 if event.key == pygame.K_t and game.depots:
                     depot = _owned_depot()
                     if depot is None:
-                        print("[client] cannot buy train: own depot not synced yet")
+                        _log(
+                            "reject",
+                            "cannot buy train: own depot not synced yet",
+                            debug=False,
+                        )
                         continue
                     action_queue.put(
                         {

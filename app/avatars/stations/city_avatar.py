@@ -4,11 +4,14 @@ import math
 
 
 class CityAvatar(StationAvatar):
-    def __init__(self):
+    def __init__(self, rotation=0):
         super().__init__()
-        self.scale = 50
-        self.surface = pygame.Surface((self.scale, self.scale), pygame.SRCALPHA)
-        self.surface.fill((128, 128, 128))
+        base_scale = 50
+        self.rotation = rotation
+        base_surface = pygame.Surface((base_scale, base_scale), pygame.SRCALPHA)
+        base_surface.fill((128, 128, 128))
+        self.surface = pygame.transform.rotate(base_surface, rotation)
+        self.scale = self.surface.get_width()
 
     def point_in_city(self, point, rect_center):
         """

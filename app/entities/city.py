@@ -51,7 +51,7 @@ class City(Entity):
         "Passenger": ["p", []],
     }
 
-    def __init__(self, nodes):
+    def __init__(self, nodes, rotation=0):
         """Initialise the city with a node, avatar, and name.
 
         Args:
@@ -69,10 +69,11 @@ class City(Entity):
         self.center_node = nodes[0]
         self.center_node.reference = self
         self.entry_node = nodes[1]
+        self.rotation = rotation
         self._spawn_rate = 0.1
         self.unique_connections = set()
         self.find_unique_connections()
-        self.avatar = CityAvatar()
+        self.avatar = CityAvatar(rotation)
 
     def assign_id(self, kind="Passenger"):
         """Generate and register a new unique ID for an entity of the given type.

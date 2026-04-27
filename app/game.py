@@ -21,6 +21,17 @@ from app.avatars.trains.EMD_E9 import EMD_E9
 from app.entities.city import City
 from app.avatars.train_cars.passenger_car_1 import PCar1
 
+LINE_COLORS = [
+    (230, 70, 70),
+    (65, 145, 235),
+    (60, 180, 105),
+    (235, 185, 55),
+    (170, 105, 235),
+    (235, 115, 55),
+    (60, 190, 190),
+    (225, 90, 150),
+]
+
 
 class Game:
     """
@@ -309,7 +320,7 @@ class Game:
             clock.tick(self._fps)
         pygame.quit()
 
-    def make_new_line(self, main_nodes, owner_id=None):
+    def make_new_line(self, main_nodes, owner_id=None, color=None):
         """
         Create a new line connecting the given nodes.
 
@@ -320,7 +331,13 @@ class Game:
         """
         if owner_id is None and self._local_player is not None:
             owner_id = self._local_player.id
-        new_line = Line(self._local_player, main_nodes, owner_id=owner_id)
+        line_color = color or LINE_COLORS[len(self.lines) % len(LINE_COLORS)]
+        new_line = Line(
+            self._local_player,
+            main_nodes,
+            owner_id=owner_id,
+            color=line_color,
+        )
         new_line.id = new_line.assign_id("Line")
         self.lines.append(new_line)
         if self._local_player is not None:
@@ -332,6 +349,7 @@ class Game:
             return
         depot = depot or self.depots[0]
         new_train = Train(depot, [], EMD_E9(), self._local_player)
+        new_train.game = self
         new_train.add_cars([PassengerCar(new_train, PCar1(), depot) for i in range(5)])
         self.trains.append(new_train)
         return new_train
@@ -399,14 +417,33 @@ class Game:
         self.depots.append(new_depot)
         return new_depot
 
-    def place_new_city(self, position):
+    def place_new_city(self, position, rotation=0):
         new_city_center_node = self.place_new_node(position)
+        angle = math.radians(rotation - 90)
         _, new_city_entry_node = self.place_new_edge(
-            new_city_center_node, [position[0], position[1] - 100]
+            new_city_center_node,
+            [
+                position[0] + (math.cos(angle) * 100),
+                position[1] + (math.sin(angle) * 100),
+            ],
         )
-        new_city = City([new_city_center_node, new_city_entry_node])
+        new_city = City([new_city_center_node, new_city_entry_node], rotation)
         new_city_center_node.id = new_city.id  # keep node ID in sync with entity ID
         self.cities.append(new_city)
+
+    def _colored_line_surface(self, edge, color):
+        color = tuple(color)
+        cache = getattr(edge, "_colored_line_surface_cache", None)
+        if cache is None:
+            cache = {}
+            edge._colored_line_surface_cache = cache
+        if color not in cache:
+            mask = pygame.mask.from_surface(edge.line_surface)
+            cache[color] = mask.to_surface(
+                setcolor=(*color, 255),
+                unsetcolor=(0, 0, 0, 0),
+            )
+        return cache[color]
 
     def compile_node_render_stack(self):
         return [
@@ -431,7 +468,14 @@ class Game:
             if line_owner_id is not None and line_owner_id != local_owner_id:
                 continue
             for edge, _ in getattr(line, "edges", []):
-                stack.append({"pos": edge.render_position, "surface": edge.line_surface})
+                stack.append(
+                    {
+                        "pos": edge.render_position,
+                        "surface": self._colored_line_surface(
+                            edge, getattr(line, "color", (255, 0, 0))
+                        ),
+                    }
+                )
         return stack
 
     def compile_train_render_stack(self):

@@ -13,6 +13,8 @@ from app.player import Player
 from app.avatars.avatar import Avatar
 from app.core.node_graph import Graph
 
+STATION_DWELL_SECONDS = 2.0
+
 
 class Train(Entity):
     """A locomotive that transports passengers and/or cargo along a line.
@@ -109,18 +111,16 @@ class Train(Entity):
                 self.assign_to_line(self._line)
             else:
                 self.update_condition(dt)
-        elif self.status == "AtStation" and self.time_at_station == 0:
-            self.time_at_station += 0.1 * dt
         elif self.status == "AtStation":
             if self.time_at_station >= 1:
                 self.status = "Running"
-                self.station.remove_train(self)
+                if self.station is not None:
+                    self.station.remove_train(self)
             else:
-                self.time_at_station += 0.1 * dt
+                self.time_at_station += dt / STATION_DWELL_SECONDS
 
     def unload(self, station):
         """Instruct all cars to unload relevant passengers or cargo at the current station."""
-        print("Unloading")
         for car in self._cars:
             car.unload(station)
 
@@ -137,7 +137,6 @@ class Train(Entity):
             list | None: Any cargo that could not be loaded, or None if a car
                 returned None indicating it could take no more.
         """
-        print("Loading")
         for car in self._cars:
             new_cargo = car.load(new_cargo)
             if new_cargo is None:
@@ -193,8 +192,9 @@ class Train(Entity):
             self.condition -= self._avatar.update_condition(dt)
         elif self.status == "Maintaining":
             cost = 10 * dt
-            if self.player._balance >= cost:
-                self.player.add_money(-cost)
+            if self.player is None or self.player._balance >= cost:
+                if self.player is not None:
+                    self.player.add_money(-cost)
                 self.condition += 0.05 * dt
 
     def _move_along_segment(self, dt):
@@ -449,8 +449,8 @@ class Train(Entity):
             )
 
     def maintain_condition(self):
-        self.find_nearest_depot()
-        self.status = "Navigating"
+        if self.find_nearest_depot():
+            self.status = "Navigating"
 
     def set_avatar(self, new_avatar):
         """Replace the train's avatar.
@@ -524,14 +524,26 @@ class Train(Entity):
         start_node = (
             self._location.end if self._nav_bound == 1 else self._location.start
         )
-        for depot in self._player.game.depots:
-            if depot.player == self._player:
+        game = getattr(self._player, "game", None) or getattr(self, "game", None)
+        owner_id = getattr(self, "owner_id", None)
+        for depot in getattr(game, "depots", []):
+            if owner_id is not None:
+                if getattr(depot, "owner_id", None) != owner_id:
+                    continue
+            elif self._player is not None and getattr(depot, "player", None) != self._player:
+                continue
+            try:
                 path_info = graph.find_shortest_path(start_node, depot.center_node)
-                if path_info[0] < shortest_length:
-                    shortest_path = path_info[1]
-                    shortest_length = path_info[0]
-        self.navigation_path = shortest_path
-        self.status = "Navigating"
+            except ValueError:
+                continue
+            if path_info[0] < shortest_length:
+                shortest_path = path_info[1]
+                shortest_length = path_info[0]
+        if shortest_path:
+            self.navigation_path = shortest_path
+            self.status = "Navigating"
+            return True
+        return False
 
     def navigate_to(self, target_node):
         graph = Graph()

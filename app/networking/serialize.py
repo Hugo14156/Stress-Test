@@ -60,13 +60,14 @@ class _NetworkCar:
 class _NetworkCity:
     """Minimal city stand-in on the client — holds position and avatar for rendering."""
 
-    def __init__(self, city_id: str, name: str, node):
+    def __init__(self, city_id: str, name: str, node, rotation=0):
         from app.avatars.stations.city_avatar import CityAvatar
 
         self.id = city_id
         self._name = name
         self.center_node = node
-        self.avatar = CityAvatar()
+        self.rotation = rotation
+        self.avatar = CityAvatar(rotation)
 
 
 class _NetworkDepot:
@@ -198,6 +199,7 @@ def _serialize_city(city) -> dict:
         "x": city.center_node.position[0],
         "y": city.center_node.position[1],
         "name": city._name,
+        "rotation": getattr(city, "rotation", 0),
     }
 
 
@@ -217,6 +219,7 @@ def _serialize_line(line, game) -> dict:
     return {
         "id": line_id,
         "owner_id": getattr(line, "owner_id", None),
+        "color": list(getattr(line, "color", (255, 0, 0))),
         "stations": station_ids,
     }
 
@@ -331,7 +334,12 @@ def apply_map(data: dict, game):
         node.id = city_data["id"]
         game.nodes.append(node)
         node_by_id[city_data["id"]] = node
-        city = _NetworkCity(city_data["id"], city_data.get("name", ""), node)
+        city = _NetworkCity(
+            city_data["id"],
+            city_data.get("name", ""),
+            node,
+            city_data.get("rotation", 0),
+        )
         node.reference = city
         game.cities.append(city)
 
@@ -373,9 +381,19 @@ def apply_map(data: dict, game):
             if sid in node_by_id
         ]
         try:
-            line = Line(None, station_nodes, owner_id=line_data.get("owner_id"))
+            line = Line(
+                None,
+                station_nodes,
+                owner_id=line_data.get("owner_id"),
+                color=line_data.get("color"),
+            )
         except Exception:
-            line = Line(None, [], owner_id=line_data.get("owner_id"))
+            line = Line(
+                None,
+                [],
+                owner_id=line_data.get("owner_id"),
+                color=line_data.get("color"),
+            )
         line.id = line_data["id"]
         game.lines.append(line)
 
@@ -465,12 +483,18 @@ def _apply_line_update(line_data: dict, game):
     ]
     line = next((line for line in game.lines if line.id == line_data.get("id")), None)
     if line is None:
-        line = Line(None, station_nodes, owner_id=line_data.get("owner_id"))
+        line = Line(
+            None,
+            station_nodes,
+            owner_id=line_data.get("owner_id"),
+            color=line_data.get("color"),
+        )
         line.id = line_data["id"]
         game.lines.append(line)
         return
 
     line.owner_id = line_data.get("owner_id")
+    line.color = tuple(line_data.get("color", getattr(line, "color", (255, 0, 0))))
     line._main_nodes = station_nodes
     line.calculate_navigation_path()
 
