@@ -119,7 +119,13 @@ class Game:
         running = True
         self.place_new_depot(self._local_player, (100, 100))
         self.place_new_city((500, 50))
-        self.place_new_city((800, 150))
+        self.place_new_city((1800, 1150))
+        self.place_new_city((2400, 120))
+        self.place_new_city((-3200, -1320))
+        self.place_new_city((4000, 2450))
+        self.place_new_city((300, -3200))
+        self.place_new_city((-5000, 1543))
+        self.place_new_city((100, 4500))
         self.place_new_city((1200, 120))
         clicked_last_tick = False
         made_new_line = False
