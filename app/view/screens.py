@@ -67,7 +67,7 @@ class Screens:
                     return "start"
         return None
 
-    def top_toolbar(self, screen, events):
+    def top_toolbar(self, screen, events, making_line=False):
         """
         Displays the top toolbar during the game and handles user interactions for pausing and quitting.
 
@@ -121,18 +121,20 @@ class Screens:
         )
         screen.blit(text, text.get_rect(center=track_button.center))
 
-        line_button = pygame.Rect(self.width // 2 + 120, 20, 70, 70)
+        line_button = pygame.Rect(self.width // 2 + 120, 20, 74, 70)
         line_hovered = line_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (120, 120, 240) if line_hovered else (100, 150, 240),
+            (60, 200, 80) if making_line else ((120, 120, 240) if line_hovered else (100, 150, 240)),
             line_button,
             border_radius=12,
         )
 
-        text = pygame.font.SysFont("Trebuchet MS", 20).render(
-            "Make\nLine", True, (255, 255, 255)
+        text = pygame.font.SysFont("Trebuchet MS", 19).render(
+            "Confirm" if making_line else "Make\nLine",
+            True,
+            (255, 255, 255)
         )
         screen.blit(text, text.get_rect(center=line_button.center))
 
@@ -441,6 +443,15 @@ class Screens:
         return None
 
     def purchase_complete(self, screen):
+        """
+        Displays a purchase complete screen after the player buys a train.
+        
+        Args:
+            screen (pygame.Surface): The surface to draw the purchase complete screen on.
+
+        Returns:
+            None
+        """
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((110, 230, 100, 110))
         screen.blit(overlay, (0, 0))

@@ -175,7 +175,7 @@ class Game:
                 self._local_player.camera.draw(screen, render_stack)
 
                 # Draw toolbar over game and check for user interaction
-                toolbar_action = self._local_player.screen.top_toolbar(screen, events)
+                toolbar_action = self._local_player.screen.top_toolbar(screen, events, self.action == "MakingLine")
                 depot_button_action = self._local_player.screen.depot_press_button(screen, events, self._local_player.camera, self.depots)
                 self._local_player.screen.player_money(screen, self._local_player._balance)
                 # Act based on user interaction
