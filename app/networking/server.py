@@ -71,7 +71,12 @@ class WebSocketServer:
     async def start(self) -> None:
         if self._server is not None:
             raise RuntimeError("Server is already running.")
-        self._server = await serve(self._handle_client, self.host, self.port)
+        self._server = await serve(
+            self._handle_client,
+            self.host,
+            self.port,
+            compression=None,
+        )
 
     async def stop(self) -> None:
         if self._server is None:
@@ -392,7 +397,7 @@ if __name__ == "__main__":
         server = WebSocketServer(host="0.0.0.0", message_handler=on_message, on_connect=on_connect)
         server.attach_game(game)
         await server.start()
-        await server.start_tick_loop(ticks_per_second=20)
+        await server.start_tick_loop(ticks_per_second=30)
         print(f"[server] listening on ws://{local_ip}:8765 — Ctrl+C to stop")
 
         # --- headless simulation loop at 60 fps ---

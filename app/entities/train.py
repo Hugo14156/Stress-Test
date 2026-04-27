@@ -307,8 +307,11 @@ class Train(Entity):
 
     def _calculate_movement_statistics(self):
         """Derive max speed, acceleration, and deceleration from the avatar and consist."""
-        self._max_speed = self._avatar.get_max_speed(self._cars)
-        self._acceleration = self._avatar.get_acceleration(self._speed, self._cars)
+        speed_multiplier = 2
+        self._max_speed = self._avatar.get_max_speed(self._cars) * speed_multiplier
+        self._acceleration = (
+            self._avatar.get_acceleration(self._speed, self._cars) * speed_multiplier
+        )
         self._deceleration = self._avatar.get_deceleration(self._speed, self._cars)
 
     def _arrive_at_station(self, node):

@@ -6,7 +6,10 @@ city with a target destination. Passengers wait at their origin city,
 board valid trains, and pay a fare upon reaching their destination.
 """
 
-import names
+try:
+    import names
+except ModuleNotFoundError:
+    names = None
 
 
 from app.entities.entity import Entity
@@ -48,7 +51,7 @@ class Passenger(Entity):
         if isinstance(name, str):
             self._name = name
         else:
-            self._name = names.get_full_name()
+            self._name = names.get_full_name() if names else f"Passenger {self.id}"
         if isinstance(target_location, City):
             self._target_location = target_location
         else:

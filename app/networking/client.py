@@ -13,7 +13,9 @@ from app.networking.serialize import apply_tick, apply_map, apply_delta
 MessageHandler = Callable[[str], Awaitable[Any] | Any]
 
 # Send an ack every N ticks received
-ACK_INTERVAL = 10
+ACK_INTERVAL = 5
+ACTION_POLL_HZ = 60
+CURSOR_SEND_HZ = 15
 
 
 class WebSocketClient:
@@ -59,7 +61,7 @@ class WebSocketClient:
     async def connect(self) -> None:
         if self._connection is not None:
             raise RuntimeError("Client is already connected.")
-        self._connection = await connect(self.uri)
+        self._connection = await connect(self.uri, compression=None)
 
     async def disconnect(self) -> None:
         if self._connection is None:
@@ -211,25 +213,30 @@ if __name__ == "__main__":
     async def _networking() -> None:
         await client.connect()
         await client.listen()
+        next_cursor_send = 0.0
         while True:
             # drain all queued actions from the main thread
             while not action_queue.empty():
                 action = action_queue.get_nowait()
                 await client.send_action(action)
 
-            tick = game._last_tick
-            mouse_pos = pygame.mouse.get_pos()
-            world_pos = game._local_player.camera.screen_to_world(
-                mouse_pos[0], mouse_pos[1]
-            )
-            await client.send_cursor(
-                world_pos[0],
-                world_pos[1],
-                tick,
-                name=game._local_player._name,
-                color=game._local_player.color,
-            )
-            await asyncio.sleep(1 / 20)
+            now = asyncio.get_running_loop().time()
+            if now >= next_cursor_send:
+                tick = game._last_tick
+                mouse_pos = pygame.mouse.get_pos()
+                world_pos = game._local_player.camera.screen_to_world(
+                    mouse_pos[0], mouse_pos[1]
+                )
+                await client.send_cursor(
+                    world_pos[0],
+                    world_pos[1],
+                    tick,
+                    name=game._local_player._name,
+                    color=game._local_player.color,
+                )
+                next_cursor_send = now + (1 / CURSOR_SEND_HZ)
+
+            await asyncio.sleep(1 / ACTION_POLL_HZ)
 
     def _run_networking() -> None:
         asyncio.run(_networking())

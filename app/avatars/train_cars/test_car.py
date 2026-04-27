@@ -17,10 +17,10 @@ class TestCar:
     placeholder car for debugging purposes.
     """
 
-    def __init__(self):
+    def __init__(self, color=None):
         """Initialise the test car surface with a red fill and black border."""
         self.surface = pygame.Surface((20, 15), pygame.SRCALPHA)
-        self.surface.fill((255, 0, 0))
+        self.surface.fill(color or (255, 0, 0))
         pygame.draw.rect(self.surface, (0, 0, 0), self.surface.get_rect(), 3)
         self.mass = 50000  # in kg
         self.cargo_capacity = 50

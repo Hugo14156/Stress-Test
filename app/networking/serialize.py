@@ -40,14 +40,15 @@ class _NetworkTrain:
 class _NetworkCar:
     """Minimal car stand-in on the client — holds position and avatar only."""
 
-    def __init__(self, car_id: str):
+    def __init__(self, car_id: str, owner_color=None):
         from app.avatars.train_cars.test_car import TestCar
 
         self.id = car_id
+        self.owner_color = owner_color
         self.owner = None
         self._position = None
         self._network_angle = 0.0
-        self.avatar = TestCar()
+        self.avatar = TestCar(tuple(owner_color) if owner_color is not None else None)
 
     def get_position(self):
         return self._position
@@ -386,7 +387,7 @@ def apply_map(data: dict, game):
             train_data.get("owner_color"),
         )
         for car_id in train_data.get("cars", []):
-            stub.cars.append(_NetworkCar(car_id))
+            stub.cars.append(_NetworkCar(car_id, train_data.get("owner_color")))
         game.trains.append(stub)
 
     if "tick" in data:
@@ -495,9 +496,11 @@ def _apply_train_add(data: dict, game):
 
     existing_cars = {car.id: car for car in train.cars}
     train.cars = [
-        existing_cars.get(car_id) or _NetworkCar(car_id)
+        existing_cars.get(car_id) or _NetworkCar(car_id, train_data.get("owner_color"))
         for car_id in train_data.get("cars", [])
     ]
+    for car in train.cars:
+        car.owner_color = train_data.get("owner_color")
 
     train_position = data.get("train_position")
     if train_position:
