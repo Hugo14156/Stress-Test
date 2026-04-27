@@ -85,10 +85,7 @@ class WebSocketClient:
 
         elif msg_type == "tick":
             if self._game is not None:
-                clean = apply_tick(data, self._game)
-                if not clean:
-                    print(f"[client] desync detected at tick {data.get('tick')} — requesting resync")
-                    await self._request_resync(data.get("tick", 0) - 1)
+                apply_tick(data, self._game)
 
             self._ticks_received += 1
             if self._ticks_received % ACK_INTERVAL == 0:
@@ -151,14 +148,10 @@ if __name__ == "__main__":
     from app.networking.serialize import apply_map
 
     import os
-    server_ip = os.environ.get("STRESS_TEST_SERVER_IP") or input("Enter server IP address: ").strip()
-    # Accept bare IP, IP:port, or a full ws:// URI
-    if server_ip.startswith("ws://"):
-        uri = server_ip
-    elif ":" in server_ip:
-        uri = f"ws://{server_ip}"
-    else:
-        uri = f"ws://{server_ip}:8765"
+    server_ip = os.environ.get("STRESS_TEST_SERVER_IP") or input("Enter server LAN IP (e.g. 192.168.1.5): ").strip()
+    # Strip any accidental ws:// prefix or port the user may have pasted
+    server_ip = server_ip.removeprefix("ws://").split(":")[0]
+    uri = f"ws://{server_ip}:8765"
 
     game = Game()
     client = WebSocketClient(uri)
@@ -202,6 +195,7 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     state = "home"
     clicked_last_tick = False
+    made_new_line = False
 
     running = True
     while running:
@@ -218,6 +212,20 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 running = False
                 break
+            if state == "game" and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_t and game.depots:
+                    action_queue.put({
+                        "type": "buy_train",
+                        "tick": game._last_tick,
+                        "depot_id": game.depots[0].id,
+                    })
+                    if game.lines:
+                        action_queue.put({
+                            "type": "assign_train",
+                            "tick": game._last_tick,
+                            "train_id": "latest",
+                            "line_id": "latest",
+                        })
 
         if state == "home":
             if game._local_player.screen.homescreen(screen, events) == "start":
@@ -225,10 +233,11 @@ if __name__ == "__main__":
                 clicked_last_tick = True
 
         elif state == "game":
+            making_lines = game.action == "MakingLine"
             game._local_player.camera.move(keys)
 
             # render only — no train.tick() calls, server drives simulation
-            render_stack = game.compile_render_stack(game.action == "PlacingTrack", False)
+            render_stack = game.compile_render_stack(game.action == "PlacingTrack", making_lines)
             game._local_player.camera.draw(screen, render_stack)
 
             toolbar_action = game._local_player.screen.top_toolbar(screen, events)
@@ -242,28 +251,74 @@ if __name__ == "__main__":
                 game.action = "PlacingTrack" if game.action != "PlacingTrack" else "Normal"
                 game.last_node = None
                 clicked_last_tick = True
+            elif toolbar_action == "make_line":
+                if game.action != "MakingLine":
+                    game.action = "MakingLine"
+                    made_new_line = False
+                else:
+                    game.action = "Normal"
+                    made_new_line = False
+                    game.last_node = None
+                clicked_last_tick = True
 
             if game.action == "PlacingTrack":
                 mouse_pos = pygame.mouse.get_pos()
                 world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
                 if mouse[0]:
-                    if game.last_node is None:
+                    if game.last_node is None and not clicked_last_tick:
                         for node in game.nodes:
                             if node.check_collision(world_pos):
                                 game.last_node = node
+                                clicked_last_tick = True
                                 break
-                    elif not clicked_last_tick:
-                        # put action into queue — networking thread will send it
-                        action_queue.put({
-                            "type": "place_track",
-                            "tick": game._last_tick,
-                            "station_a": game.last_node.id,
-                            "x": world_pos[0],
-                            "y": world_pos[1],
-                        })
+                    elif game.last_node is not None and not clicked_last_tick:
+                        # Check if the second click lands on an existing node
+                        existing = next(
+                            (n for n in game.nodes if n.check_collision(world_pos) and n is not game.last_node),
+                            None,
+                        )
+                        if existing:
+                            game.place_new_edge(game.last_node, end_node=existing)
+                            action_queue.put({
+                                "type": "place_track",
+                                "tick": game._last_tick,
+                                "station_a": game.last_node.id,
+                                "station_b": existing.id,
+                            })
+                        else:
+                            game.place_new_edge(game.last_node, world_pos)
+                            action_queue.put({
+                                "type": "place_track",
+                                "tick": game._last_tick,
+                                "station_a": game.last_node.id,
+                                "x": world_pos[0],
+                                "y": world_pos[1],
+                            })
                         game.last_node = None
                         clicked_last_tick = True
                 else:
+                    clicked_last_tick = False
+
+            elif game.action == "MakingLine":
+                mouse_pos = pygame.mouse.get_pos()
+                world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
+                if mouse[0] and not clicked_last_tick:
+                    if not made_new_line:
+                        game.make_new_line([])
+                        action_queue.put({"type": "create_line", "tick": game._last_tick})
+                        made_new_line = True
+                    else:
+                        for node in game.nodes:
+                            if node.check_collision(world_pos):
+                                game.lines[-1].toggle_station(node)
+                                action_queue.put({
+                                    "type": "toggle_station",
+                                    "tick": game._last_tick,
+                                    "node_id": node.id,
+                                })
+                                break
+                    clicked_last_tick = True
+                elif not mouse[0]:
                     clicked_last_tick = False
 
         elif state == "pause":

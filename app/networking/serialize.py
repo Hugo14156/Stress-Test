@@ -118,7 +118,11 @@ def _serialize_track(edge, game) -> dict:
     edge_id = getattr(edge, "id", None) or f"trk_{game.edges.index(edge)}"
     city_a = _find_station_id(edge.start, game)
     city_b = _find_station_id(edge.end, game)
-    return {"id": edge_id, "station_a": city_a, "station_b": city_b}
+    return {
+        "id": edge_id,
+        "station_a": city_a, "ax": edge.start.position[0], "ay": edge.start.position[1],
+        "station_b": city_b, "bx": edge.end.position[0],   "by": edge.end.position[1],
+    }
 
 
 def _serialize_city(city) -> dict:
@@ -186,9 +190,6 @@ def apply_tick(data: dict, game) -> bool:
     (caller should send a resync_request).
     """
     incoming_tick = data.get("tick", 0)
-    last_tick = getattr(game, "_last_tick", None)
-
-    desync = last_tick is not None and incoming_tick != last_tick + 1
     game._last_tick = incoming_tick
 
     train_map = {t.id: t for t in game.trains}
@@ -207,7 +208,7 @@ def apply_tick(data: dict, game) -> bool:
 
     game._remote_cursors = {c["id"]: c for c in data.get("cursors", [])}
 
-    return not desync
+    return True
 
 
 def apply_map(data: dict, game):
@@ -235,6 +236,7 @@ def apply_map(data: dict, game):
         game.nodes.append(node)
         node_by_id[city_data["id"]] = node
         city = _NetworkCity(city_data["id"], city_data.get("name", ""), node)
+        node.reference = city
         game.cities.append(city)
 
     for depot_data in data.get("depots", []):
@@ -244,6 +246,15 @@ def apply_map(data: dict, game):
         node_by_id[depot_data["id"]] = node
 
     for track_data in data.get("tracks", []):
+        # Create any endpoint nodes that aren't city/depot centres (e.g. entry nodes)
+        for side, xk, yk in (("station_a", "ax", "ay"), ("station_b", "bx", "by")):
+            sid = track_data[side]
+            if sid not in node_by_id and xk in track_data:
+                node = Node((track_data[xk], track_data[yk]))
+                node.id = sid
+                game.nodes.append(node)
+                node_by_id[sid] = node
+
         node_a = node_by_id.get(track_data["station_a"])
         node_b = node_by_id.get(track_data["station_b"])
         if node_a and node_b:

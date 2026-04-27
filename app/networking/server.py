@@ -211,10 +211,15 @@ if __name__ == "__main__":
         async def on_message(data: dict, sender: ServerConnection, cid: str) -> None:
             msg_type = data.get("type")
             if msg_type == "place_track":
-                game.place_new_edge(
-                    next((n for n in game.nodes if n.id == data["station_a"]), None),
-                    (data["x"], data["y"]),
-                )
+                start_node = next((n for n in game.nodes if n.id == data["station_a"]), None)
+                if start_node is None:
+                    print(f"[server] place_track: unknown node id {data.get('station_a')!r}")
+                elif "station_b" in data:
+                    end_node = next((n for n in game.nodes if n.id == data["station_b"]), None)
+                    if end_node:
+                        game.place_new_edge(start_node, end_node=end_node)
+                else:
+                    game.place_new_edge(start_node, (data["x"], data["y"]))
             elif msg_type == "place_city":
                 game.place_new_city((data["x"], data["y"]))
             elif msg_type == "buy_train":
@@ -222,12 +227,17 @@ if __name__ == "__main__":
                 if depot:
                     game.add_test_train()
             elif msg_type == "assign_train":
-                train = next((t for t in game.trains if t.id == data["train_id"]), None)
-                line = next((l for l in game.lines if l.id == data["line_id"]), None)
+                tid, lid = data.get("train_id"), data.get("line_id")
+                train = game.trains[-1] if tid == "latest" else next((t for t in game.trains if t.id == tid), None)
+                line = game.lines[-1] if lid == "latest" else next((l for l in game.lines if l.id == lid), None)
                 if train and line:
                     train.assign_to_line(line)
             elif msg_type == "create_line":
                 game.make_new_line([])
+            elif msg_type == "toggle_station":
+                node = next((n for n in game.nodes if n.id == data.get("node_id")), None)
+                if node and game.lines:
+                    game.lines[-1].toggle_station(node)
             else:
                 print(f"[server] {cid[:8]} -> unhandled action: {msg_type}")
 

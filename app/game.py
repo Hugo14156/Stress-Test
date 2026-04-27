@@ -384,6 +384,7 @@ class Game:
             new_depot_center_node, [position[0], position[1] - 100]
         )
         new_depot = TrainDepot(player, [new_depot_center_node, new_depot_entry_node])
+        new_depot_center_node.id = new_depot.id  # keep node ID in sync with entity ID
         self.depots.append(new_depot)
 
     def place_new_city(self, position):
@@ -392,6 +393,7 @@ class Game:
             new_city_center_node, [position[0], position[1] - 100]
         )
         new_city = City([new_city_center_node, new_city_entry_node])
+        new_city_center_node.id = new_city.id  # keep node ID in sync with entity ID
         self.cities.append(new_city)
 
     def compile_node_render_stack(self):
