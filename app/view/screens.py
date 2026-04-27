@@ -1,4 +1,5 @@
 import pygame
+from app.view.camera import Camera  
 
 
 class Screens:
@@ -256,14 +257,18 @@ class Screens:
                     return "no"
         return None
 
-    def depot_press(self, screen, events):
+    def depot_press_button(self, screen, events, camera, depots):
         mouse_pos = pygame.mouse.get_pos()
+        world_mouse = camera.screen_to_world(*mouse_pos)
 
-        for depot in self.depots:
-            if depot.rect.collidepoint(mouse_pos):
-                pygame.draw.rect(screen, (200, 40, 60), depot.rect, border_radius=12)
+        for depot in depots:
+            node = depot.center_node
+            if node.check_collision(world_mouse):
+                sx, sy = camera.world_to_screen(*node.position)
+                press_rect = pygame.Rect(sx - 130, sy - 30, 260, 60)
+                pygame.draw.rect(screen, (100, 200, 250), press_rect, border_radius=12)
                 text = self.button_font.render("Enter Depot", True, (255, 255, 255))
-                screen.blit(text, text.get_rect(center=depot.rect.center))
+                screen.blit(text, text.get_rect(center=press_rect.center))
 
                 for event in events:
                     if event.type == pygame.MOUSEBUTTONDOWN:
@@ -272,9 +277,8 @@ class Screens:
         return None
     
     def depot_screen(self, screen, events):
-        overlay = pygame.Surface((self.width, self.height))
-        overlay.set_alpha(160)
-        overlay.fill((0, 0, 0))
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 30, 120))
         screen.blit(overlay, (0, 0))
 
         popup = pygame.Rect(
@@ -288,7 +292,7 @@ class Screens:
         pygame.draw.rect(screen, (40, 40, 40), popup, 4, border_radius=18)
 
         title = self.title_font.render("Depot Menu", True, (20, 20, 20))
-        screen.blit(title, title.get_rect(center=(popup.centerx, popup.y + 50)))
+        screen.blit(title, title.get_rect(center=(popup.centerx, popup.y + 80)))
 
         mouse_pos = pygame.mouse.get_pos()
 
@@ -297,7 +301,7 @@ class Screens:
         gap = 40
 
         total_width = button_width * 3 + gap * 2
-        start_x = popup.centerx - total_width // 2
+        start_x = popup.centerx - total_width // 2 - 50
         y_pos = popup.y + 160
 
         EMD8_button = pygame.Rect(
@@ -311,7 +315,7 @@ class Screens:
 
         pygame.draw.rect(
             screen,
-            (200, 40, 60) if EMD8_hovered else (180, 20, 40),
+            (50, 200, 60) if EMD8_hovered else (80, 220, 70),
             EMD8_button,
             border_radius=12
         )
@@ -330,7 +334,7 @@ class Screens:
 
         pygame.draw.rect(
             screen,
-            (200, 40, 60) if EMD9_hovered else (180, 20, 40),
+            (50, 200, 60) if EMD9_hovered else (80, 220, 70),
             EMD9_button,
             border_radius=12
         )
@@ -338,24 +342,24 @@ class Screens:
         text = self.button_font.render("Buy EMD E9", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=EMD9_button.center))
 
-        test_train_button = pygame.Rect(
+        siemens_button = pygame.Rect(
             start_x + (button_width + gap) * 2,
             y_pos,
-            button_width,
+            button_width + 150,
             button_height
         )
 
-        test_train_hovered = test_train_button.collidepoint(mouse_pos)
+        siemens_hovered = siemens_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (200, 40, 60) if test_train_hovered else (180, 20, 40),
-            test_train_button,
+            (50, 200, 60) if siemens_hovered else (80, 220, 70),
+            siemens_button,
             border_radius=12
         )
 
-        text = self.button_font.render("Buy Test Train", True, (255, 255, 255))
-        screen.blit(text, text.get_rect(center=test_train_button.center))
+        text = self.button_font.render("Buy Siemens ACS-64", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=siemens_button.center))
 
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -365,6 +369,6 @@ class Screens:
                 if EMD9_hovered:
                     return "buy_EMD9"
 
-                if test_train_hovered:
-                    return "buy_test_train"
+                if siemens_hovered:
+                    return "buy_ACS-64"
         return None

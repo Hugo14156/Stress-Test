@@ -3,6 +3,7 @@
 import os
 import tkinter as tk
 from app.avatars.trains.EMD_E8 import EMD_E8
+from app.view import camera
 import pygame
 import math
 from app.player import Player
@@ -166,8 +167,13 @@ class Game:
 
                 # Draw toolbar over game and check for user interaction
                 toolbar_action = self._local_player.screen.top_toolbar(screen, events)
-
+                depot_button_action = self._local_player.screen.depot_press_button(screen, events, self._local_player.camera, self.depots)
+                
                 # Act based on user interaction
+
+                if depot_button_action == "depot":
+                    state = "depot"
+                    clicked_last_tick = True
 
                 if toolbar_action == "pause":
                     state = "pause"
@@ -264,6 +270,7 @@ class Game:
                 elif keys[pygame.K_t]:
                     self.add_test_train()
                     self.trains[-1].assign_to_line(self.lines[-1])
+                    
 
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
@@ -275,6 +282,13 @@ class Game:
                 if self._local_player.screen.quit_screen(screen, events) == "yes":
                     running = False
                 elif self._local_player.screen.quit_screen(screen, events) == "no":
+                    state = "game"
+
+            elif state == "depot":
+                self._local_player.camera.move(keys)
+                self._local_player.screen.depot_screen(screen, events)
+
+                if keys[pygame.K_ESCAPE]:
                     state = "game"
 
             pygame.display.flip()
