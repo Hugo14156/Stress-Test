@@ -307,7 +307,7 @@ class Train(Entity):
 
     def _calculate_movement_statistics(self):
         """Derive max speed, acceleration, and deceleration from the avatar and consist."""
-        speed_multiplier = 10
+        speed_multiplier = 500
         self._max_speed = self._avatar.get_max_speed(self._cars) * speed_multiplier
         self._acceleration = (
             self._avatar.get_acceleration(self._speed, self._cars) * speed_multiplier
