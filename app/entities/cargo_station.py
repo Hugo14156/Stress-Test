@@ -1,2 +1,0 @@
-class CargoStation:
-    "In Development"
