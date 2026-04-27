@@ -163,11 +163,11 @@ class Game:
 
                 # Tick all trains
                 for train in self.trains:
-                    train.tick(5 / self._fps)
+                    train.tick(10 / self._fps)
 
                 # Tick all Cities
                 for city in self.cities:
-                    city.tick(5 / self._fps)
+                    city.tick(10 / self._fps)
 
                 # Compile render stack of this frame
                 render_stack = self.compile_render_stack(
