@@ -1,10 +1,4 @@
-"""
-Passenger car entity for trains in Stress Test.
-
-Defines the Car class, which represents a single passenger-carrying car
-attached to a train. Handles passenger loading and unloading, position
-tracking along track segments, and following the lead vehicle.
-"""
+"""Base car entity used by passenger and cargo rolling stock."""
 
 
 class Car:
@@ -31,6 +25,7 @@ class Car:
         self._t = 0
         self._t_delay = 0
         self._speed = 0
+        self._bound = 1
 
     def find_t_delay(self, leader):
         """Calculate the parametric offset behind the leader on the current segment.
@@ -43,7 +38,7 @@ class Car:
         """
         distance_offset = (
             self.avatar.surface.get_width() // 2
-            + leader.avatar.surface.get_height() // 2
+            + leader.avatar.surface.get_width() // 2
             + 0.1
         )
         self._t_delay = distance_offset / self._location.length
@@ -69,12 +64,13 @@ class Car:
             dt (float): Delta time in seconds since the last frame.
         """
         if self.train.location == self._location:
-            if self.train.bound == 1:
+            if self.train.nav_bound == 1:
                 self._t = leader._t - self._t_delay
             else:
                 self._t = leader._t + self._t_delay
+            self._bound = self.train.nav_bound
         else:
-            self._t += self.train.bound * self.train.speed * dt / self._location.length
+            self._t += self._bound * self.train.speed * dt / self._location.length
             if self._t > 1.0:
                 self._arrive_at(leader)
                 self.find_t_delay(leader)
@@ -96,4 +92,5 @@ class Car:
 
     @property
     def location(self):
+        """Edge: The track segment currently occupied by the car."""
         return self._location

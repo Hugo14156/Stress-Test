@@ -42,7 +42,6 @@ class Train:
             ValueError: If player is not a Player instance.
         """
         from app.entities.car import Car
-        from app.avatars.avatar import Avatar
 
         # from app.entities.station import Station
 
@@ -69,7 +68,8 @@ class Train:
             self._player = player
         else:
             raise ValueError("player must be a Player object.")
-        self._bound = 1
+        self._nav_bound = 1
+        self._global_bound = 1
         self._line = None
         self._position = None
         self._speed = 0
@@ -82,6 +82,8 @@ class Train:
         self.status = "Idle"
         self.navigation_path = []
         self.condition = 1
+        self.time_at_station = 0
+        self.station = None
 
     def tick(self, dt):
         """Advance the train's state by one frame.
@@ -103,11 +105,18 @@ class Train:
                 self.assign_to_line(self._line)
             else:
                 self.update_condition(dt)
-        elif self.status == "At Station":
-            self.unload(self._location)
+        elif self.status == "AtStation" and self.time_at_station == 0:
+            self.time_at_station += 0.1 * dt
+        elif self.status == "AtStation":
+            if self.time_at_station >= 1:
+                self.status = "Running"
+                self.station.remove_train(self)
+            else:
+                self.time_at_station += 0.1 * dt
 
     def unload(self, station):
         """Instruct all cars to unload relevant passengers or cargo at the current station."""
+        print("Unloading")
         for car in self._cars:
             car.unload(station)
 
@@ -124,7 +133,7 @@ class Train:
             list | None: Any cargo that could not be loaded, or None if a car
                 returned None indicating it could take no more.
         """
-
+        print("Loading")
         for car in self._cars:
             new_cargo = car.load(new_cargo)
             if new_cargo is None:
@@ -179,7 +188,10 @@ class Train:
         if self.status == "Running" or self.status == "Navigating":
             self.condition -= self._avatar.update_condition(dt)
         elif self.status == "Maintaining":
-            self.condition += 0.1 * dt
+            cost = 10 * dt
+            if self.player._balance >= cost:
+                self.player.add_money(-cost)
+                self.condition += 0.05 * dt
 
     def _move_along_segment(self, dt):
         """Advance the train and all its cars along the current track segment.
@@ -192,7 +204,7 @@ class Train:
             dt (float): Delta time in seconds since the last frame.
         """
         self._calculate_movement_statistics()
-        self._t += self._bound * self._speed * dt / self._location.length
+        self._t += self._nav_bound * self._speed * dt / self._location.length
         for index, car in enumerate(self._cars):
             if index == 0:
                 car.move_along_segment(self, dt)
@@ -250,11 +262,14 @@ class Train:
             if node in self.line.stations:
                 self._arrive_at_station(node)
             else:
-                new_edge, new_bound = self.line.next_edge(node, self._bound)
+                new_edge, new_global_bound, new_nav_bound = self.line.next_edge(
+                    node, self._global_bound, self.station.center_node
+                )
                 self._location = new_edge
-                self._bound = new_bound
+                self._global_bound = new_global_bound
+                self._nav_bound = new_nav_bound
                 self._location.add_train(self)
-                self._t = 0 if new_bound == 1 else 1
+                self._t = 0 if new_nav_bound == 1 else 1
         elif self.status == "Navigating":
             if node == self.navigation_path[-1]:
                 self._arrive_at_station(node)
@@ -265,12 +280,12 @@ class Train:
                 ]
                 for edge in node.edges:
                     if edge.start == next_target_node:
-                        self._bound = -1
+                        self._nav_bound = -1
                         self._t = 1
                         self._location = edge
                         self._location.add_train(self)
                     elif edge.end == next_target_node:
-                        self._bound = 1
+                        self._nav_bound = 1
                         self._t = 0
                         self._location = edge
                         self._location.add_train(self)
@@ -294,19 +309,30 @@ class Train:
         Args:
             node (Node): The station node the train has arrived at.
         """
+        from app.entities.city import City
+
         if self.status == "Navigating":
             if self.condition <= 0 and isinstance(node.reference, TrainDepot):
-                print("Maintaining")
                 self.status = "Maintaining"
             else:
                 self.status = "Running"
                 self._arrive_at(node)
         elif self.status == "Running":
-            new_edge, new_bound = self.line.next_edge(node, self._bound)
+            if isinstance(node.reference, City):
+                self._speed = 0
+                self.status = "AtStation"
+                self.unload(node.reference)
+                node.reference.add_train(self)
+                self.station = node.reference
+                self.time_at_station = 0
+            new_edge, new_global_bound, new_nav_bound = self.line.next_edge(
+                node, self._global_bound, self.station.center_node
+            )
             self._location = new_edge
-            self._bound = new_bound
+            self._global_bound = new_global_bound
+            self._nav_bound = new_nav_bound
             self._location.add_train(self)
-            self._t = 0 if new_bound == 1 else 1
+            self._t = 0 if new_nav_bound == 1 else 1
         # self._distance_to_next_station = self._line.distance_to_next_station(
         #     node, self._bound
         # )
@@ -315,6 +341,10 @@ class Train:
     def id(self):
         """str: The unique identifier for this train."""
         return self._id
+
+    @property
+    def player(self):
+        return self._player
 
     @property
     def location(self):
@@ -332,9 +362,14 @@ class Train:
         return self._avatar
 
     @property
-    def bound(self):
+    def global_bound(self):
         """int: The current direction of travel; 1 for forward, -1 for reverse."""
-        return self._bound
+        return self._global_bound
+
+    @property
+    def nav_bound(self):
+        """int: The current direction of travel; 1 for forward, -1 for reverse."""
+        return self._nav_bound
 
     @property
     def line(self):
@@ -439,7 +474,7 @@ class Train:
             ValueError: If new_bound is not a boolean or None.
         """
         if isinstance(new_bound, (bool, None)):
-            self._bound = new_bound
+            self._global_bound = new_bound
         else:
             raise ValueError("new_bound must be a boolean or None type.")
 
@@ -482,7 +517,9 @@ class Train:
         graph = Graph()
         shortest_length = float("inf")
         shortest_path = []
-        start_node = self._location.end if self._bound == 1 else self._location.start
+        start_node = (
+            self._location.end if self._nav_bound == 1 else self._location.start
+        )
         for depot in self._player.game.depots:
             if depot.player == self._player:
                 path_info = graph.find_shortest_path(start_node, depot.center_node)

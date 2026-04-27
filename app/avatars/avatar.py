@@ -33,7 +33,10 @@ class Avatar:
         rotated_image = pygame.transform.rotate(self.surface, angle)
         new_rect = rotated_image.get_rect(
             center=self.surface.get_rect(
-                topleft=(world_position[0] - 20 // 2, world_position[1] - 10 // 2)
+                topleft=(
+                    world_position[0] - (self.surface.get_width() // 2),
+                    world_position[1] - (self.surface.get_height() // 2),
+                )
             ).center
         )
         return (rotated_image, new_rect.topleft)

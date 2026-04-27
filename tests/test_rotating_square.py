@@ -1,3 +1,5 @@
+"""Manual rotation smoke test for a train sprite surface."""
+
 import pygame
 import sys
 import math

@@ -36,7 +36,7 @@ class Passenger:
         from app.entities.city import City
 
         if isinstance(location, City):
-            self._id = location.assign__id("Passenger")
+            self._id = location.assign_id("Passenger")
             self._location = location
         else:
             raise ValueError("location must be a City object")
@@ -58,7 +58,9 @@ class Passenger:
         Returns:
             bool: True if the train's line includes the passenger's destination.
         """
-        return self._target_location in train.line().stations()
+        return self._target_location in [
+            station.reference for station in train.line.stations
+        ]
 
     def check_valid_city(self, city):
         """Check whether the given city is this passenger's destination.
@@ -81,4 +83,4 @@ class Passenger:
 
     def pay(self):
         """Issue a fare payment to the player upon reaching the destination."""
-        self._location.player.add_money(4.28)
+        self._location.train.player.add_money(10)

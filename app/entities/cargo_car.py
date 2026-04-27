@@ -52,7 +52,7 @@ class CargoCar(Car):
         """
         from app.entities.cargo import Cargo
 
-        if isinstance(cargo, (list, tuple)):
+        if not isinstance(cargo, list):
             raise ValueError("cargo must be a list or a tuple.")
         for index, cargo in enumerate(cargo):
             if isinstance(cargo, Cargo):
