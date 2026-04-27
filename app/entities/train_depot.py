@@ -65,13 +65,16 @@ class TrainDepot:
         return new_id
 
     def add_train(self, new_train):
+        """Register a train with this depot if it is not already present."""
         if new_train not in self.trains:
             self.trains.append(new_train)
 
     def remove_train(self, leaving_train):
+        """Remove a train from this depot if it is currently registered."""
         if leaving_train in self.trains:
             self.trains.remove(leaving_train)
 
     @property
     def player(self):
+        """Player: The owner associated with this depot."""
         return self._player

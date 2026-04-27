@@ -42,7 +42,7 @@ class EMD_E8(TrainAvatar):
             / "trains"
             / "EMD_8.png"
         )
-        scale = 30
+        scale = 60
         image = pygame.image.load(str(image_path)).convert_alpha()
         scaled_size = (image.get_width() // scale, image.get_height() // scale)
         image = pygame.transform.smoothscale(image, scaled_size)

@@ -52,18 +52,18 @@ class PassengerCar(Car):
         """
         from app.entities.passenger import Passenger
 
-        if isinstance(passengers, list):
+        if not isinstance(passengers, list):
             raise ValueError(
                 "passengers is not a list. Please input passengers as a list of passenger types."
             )
         for index, passenger in enumerate(passengers):
-            if isinstance(passenger, Passenger):
+            if not isinstance(passenger, Passenger):
                 raise ValueError(
                     f"index {index} of passengers is not a passenger. Please input passengers as a list of passenger types."
                 )
             if len(self.passengers) < self.avatar.passenger_capacity:
                 self.passengers.append(passenger)
-                passenger.embark(self)
+                passenger.board_train(self)
             else:
                 return passengers[index:]
         return None
@@ -78,6 +78,6 @@ class PassengerCar(Car):
             >>> unload()
         """
         for passenger in self.passengers:
-            if passenger.destination == station:
-                passenger.disembark(station)
+            if passenger.check_valid_city(station):
+                passenger.pay()
                 self.passengers.remove(passenger)

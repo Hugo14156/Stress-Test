@@ -7,17 +7,49 @@ passengers travelling across the network.
 """
 
 import random
-from app.entities.station import Station
+
+from app.avatars.stations.city_avatar import CityAvatar
 
 
-class City(Station):
+class City:
     """A passenger-generating station on the track network.
 
     Spawns passengers over time for each unique city connection available
     via its lines, and manages boarding when trains arrive and depart.
     """
 
-    def __init__(self, node, avatar, name):
+    cities = [
+        "New York",
+        "London",
+        "Tokyo",
+        "Paris",
+        "Sydney",
+        "Berlin",
+        "Toronto",
+        "Dubai",
+        "Singapore",
+        "Rome",
+        "Barcelona",
+        "Amsterdam",
+        "Hong Kong",
+        "Los Angeles",
+        "Chicago",
+        "Cape Town",
+        "Bangkok",
+        "Istanbul",
+        "San Francisco",
+        "Lisbon",
+        "Windale",
+        "Moneyville",
+        "Train City",
+        "New London",
+        "Olintown",
+    ]
+    ids = {
+        "Passenger": ["p", []],
+    }
+
+    def __init__(self, nodes):
         """Initialise the city with a node, avatar, and name.
 
         Args:
@@ -26,13 +58,40 @@ class City(Station):
             avatar (Avatar): The graphical representation of this city.
             name (str): The display name of this city.
         """
-        super().__init__(node, avatar)
-        self._name = name
+        self._name = random.choice(self.cities)
         self._trains = []
         self._lines = []
         self._passengers = []
-        self._spawn_rate = 0.25
-        self.unique_connections = self.find_unique_connections()
+        self.center_node = nodes[0]
+        self.center_node.reference = self
+        self.entry_node = nodes[1]
+        self._spawn_rate = 0.1
+        self.unique_connections = set()
+        self.find_unique_connections()
+        self.avatar = CityAvatar()
+
+    def assign_id(self, kind="Passenger"):
+        """Generate and register a new unique ID for an entity of the given type.
+
+        Constructs an ID using the type's prefix and an incrementing integer
+        based on the last assigned ID for that type. The new ID is appended
+        to the type's ID list before being returned.
+
+        Args:
+            kind (str): The entity type key, must be one of the keys in the
+                ids class variable (e.g. "Train", "Passenger", "Cargo Car").
+
+        Returns:
+            str: The newly assigned unique ID string, e.g. "t_player-3".
+        """
+        if self.ids[kind][1] == []:
+            new_id = f"{self.ids[kind][0]}-{0}"
+        else:
+            new_id = (
+                f"{self.ids[kind][0]}-{int(self.ids[kind][1][-1].split("-")[-1]) + 1}"
+            )
+        self.ids[kind][1].append(new_id)
+        return new_id
 
     def find_unique_connections(self):
         """Build the set of unique cities reachable from this city via its lines.
@@ -46,9 +105,12 @@ class City(Station):
         unique_connections = set()
         for line in self._lines:
             for station in line.stations:
-                if isinstance(station, City):
+                if isinstance(station.reference, City):
                     unique_connections.add(station)
-        return unique_connections
+        self.unique_connections = unique_connections
+
+    def tick(self, dt):
+        self.create_passengers(dt)
 
     def create_passengers(self, dt):
         """Probabilistically spawn new passengers for each reachable connection.
@@ -64,7 +126,9 @@ class City(Station):
         new_passengers = []
         for connection in self.unique_connections:
             if random.random() <= self._spawn_rate * dt:
-                new_passengers.append(Passenger(self, target_location=connection))
+                new_passengers.append(
+                    Passenger(self, target_location=connection.reference)
+                )
         self._passengers += new_passengers
 
     def add_train(self, new_train):
@@ -103,13 +167,20 @@ class City(Station):
                 for passenger in self._passengers
                 if passenger.check_valid_train(target_train)
             ]
-            remaining_passengers = target_train.board(candidate_passengers)
-            self._passengers = [
-                passenger
-                for passenger in self._passengers
-                if passenger not in candidate_passengers
-                or passenger in remaining_passengers
-            ]
+            remaining_passengers = target_train.load(candidate_passengers)
+            if remaining_passengers is None:
+                self._passengers = [
+                    passenger
+                    for passenger in self._passengers
+                    if passenger not in candidate_passengers
+                ]
+            else:
+                self._passengers = [
+                    passenger
+                    for passenger in self._passengers
+                    if (passenger not in candidate_passengers)
+                    or (passenger in remaining_passengers)
+                ]
         else:
             for train in self._trains:
                 candidate_passengers = [
@@ -124,3 +195,13 @@ class City(Station):
                     if passenger not in candidate_passengers
                     or passenger in remaining_passengers
                 ]
+
+    def add_line(self, new_line):
+        """Register a new line that serves this city."""
+        if new_line not in self._lines:
+            self._lines.append(new_line)
+
+    def remove_line(self, target_line):
+        """Remove a line from this city's list of served routes."""
+        if target_line in self._lines:
+            self._lines.remove(target_line)

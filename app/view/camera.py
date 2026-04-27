@@ -1,3 +1,5 @@
+"""Camera utilities for converting between world and screen coordinates."""
+
 import pygame
 
 
@@ -38,13 +40,13 @@ class Camera:
             keys (pygame.key.get_pressed()): The current state of all keyboard buttons.
         """
         if keys[pygame.K_w]:
-            self.y += self.speed
-        if keys[pygame.K_s]:
             self.y -= self.speed
+        if keys[pygame.K_s]:
+            self.y += self.speed
         if keys[pygame.K_a]:
-            self.x += self.speed
-        if keys[pygame.K_d]:
             self.x -= self.speed
+        if keys[pygame.K_d]:
+            self.x += self.speed
 
         if keys[pygame.K_1]:
             self.zoom += self.zoom_speed

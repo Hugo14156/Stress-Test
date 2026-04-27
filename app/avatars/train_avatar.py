@@ -1,10 +1,14 @@
+"""Train avatar base class for locomotive sprites and performance stats."""
+
 from app.avatars.avatar import Avatar
 
 # pixels per second = meters per second
 
 class TrainAvatar(Avatar):
+    """Base avatar for locomotives, including power and wear statistics."""
 
     def __init__(self):
+        """Initialise the locomotive metadata to neutral defaults."""
         super().__init__()
         self._mass = 0  # in kg
         self._power_output = 0  # in watts
@@ -109,4 +113,5 @@ class TrainAvatar(Avatar):
         return distance_to_stop
 
     def update_condition(self, dt):
+        """Return the amount of condition lost during the given time step."""
         return self._condition_rating * dt

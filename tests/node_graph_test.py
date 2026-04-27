@@ -1,3 +1,5 @@
+"""Standalone smoke test for node-graph shortest-path behaviour."""
+
 from pathlib import Path
 import sys
 
