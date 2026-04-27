@@ -2,6 +2,9 @@
 Defines the EMD E8 locomotive avatar, including its static and live specifications.
 
 Includes calculation methods for max speed, acceleration, and deceleration.
+
+Also provides a simple coloured rectangle sprite used during development to 
+verify positioning, pathfinding, and rotation behaviour on the track.
 """
 
 # pylint: disable=no-member

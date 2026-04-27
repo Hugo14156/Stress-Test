@@ -1,5 +1,6 @@
 from app.avatars.avatar import Avatar
 
+# pixels per second = meters per second
 
 class TrainAvatar(Avatar):
 
@@ -76,6 +77,36 @@ class TrainAvatar(Avatar):
         """
         deceleration = -self.get_acceleration(velocity, car_list)  # in km/h^2
         return deceleration
+    
+    def get_distance_to_stop(self, velocity, car_list):
+        """
+        Return the distance it takes for the train to come to a complete stop from its current velocity.
+
+        Args:
+            velocity: The current velocity of the train in km/h.
+            car_list: A list of cars attached to the locomotive.
+        
+        returns:
+            distance_to_stop: The calculated distance to stop in meters.
+        """
+
+        for car in car_list:
+            carried_weight += car.avatar.mass
+
+        gravity = 9.81  # in m/s^2
+        coeff_friction = 0.35  # coefficient of friction for steel wheels on steel rails
+
+        piecewise_velocity = coeff_friction * gravity
+
+        if velocity <= piecewise_velocity:
+            distance_to_stop = (velocity ** 2) / (2 * coeff_friction * gravity)
+        else:
+            total_mass = self._mass + carried_weight
+            distance_to_stop = ((total_mass * piecewise_velocity ** 3) / (3 * self._power_output))
+            distance_to_stop = distance_to_stop - ((total_mass * velocity ** 3) / (3 * self._power_output))
+            distance_to_stop = distance_to_stop + (piecewise_velocity ** 2) / (2 * coeff_friction * gravity)
+
+        return distance_to_stop
 
     def update_condition(self, dt):
         return self._condition_rating * dt
