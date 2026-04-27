@@ -92,7 +92,9 @@ class WebSocketClient:
                 await self._send_ack(data.get("tick", 0))
 
         elif msg_type == "reject":
-            print(f"[client] action rejected: {data.get('action')} — {data.get('reason')}")
+            print(
+                f"[client] action rejected: {data.get('action')} — {data.get('reason')}"
+            )
 
         elif msg_type == "leave":
             if self._game is not None:
@@ -114,14 +116,26 @@ class WebSocketClient:
         await self.send(json.dumps(action))
 
     async def send_cursor(
-        self, x: float, y: float, tick: int, name: str = "", color: tuple = (255, 255, 0)
+        self,
+        x: float,
+        y: float,
+        tick: int,
+        name: str = "",
+        color: tuple = (255, 255, 0),
     ) -> None:
         """Send the player's cursor position, name, and color in world coordinates."""
-        await self.send(json.dumps({
-            "type": "cursor", "tick": tick,
-            "x": round(x, 2), "y": round(y, 2),
-            "name": name, "color": list(color),
-        }))
+        await self.send(
+            json.dumps(
+                {
+                    "type": "cursor",
+                    "tick": tick,
+                    "x": round(x, 2),
+                    "y": round(y, 2),
+                    "name": name,
+                    "color": list(color),
+                }
+            )
+        )
 
     async def recv(self) -> str:
         if self._connection is None:
@@ -148,7 +162,11 @@ if __name__ == "__main__":
     from app.networking.serialize import apply_map
 
     import os
-    server_ip = os.environ.get("STRESS_TEST_SERVER_IP") or input("Enter server LAN IP (e.g. 192.168.1.5): ").strip()
+
+    server_ip = (
+        os.environ.get("STRESS_TEST_SERVER_IP")
+        or input("Enter server LAN IP (e.g. 192.168.1.5): ").strip()
+    )
     # Strip any accidental ws:// prefix or port the user may have pasted
     server_ip = server_ip.removeprefix("ws://").split(":")[0]
     uri = f"ws://{server_ip}:8765"
@@ -174,9 +192,13 @@ if __name__ == "__main__":
 
             tick = game._last_tick
             mouse_pos = pygame.mouse.get_pos()
-            world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
+            world_pos = game._local_player.camera.screen_to_world(
+                mouse_pos[0], mouse_pos[1]
+            )
             await client.send_cursor(
-                world_pos[0], world_pos[1], tick,
+                world_pos[0],
+                world_pos[1],
+                tick,
                 name=game._local_player._name,
                 color=game._local_player.color,
             )
@@ -214,18 +236,22 @@ if __name__ == "__main__":
                 break
             if state == "game" and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_t and game.depots:
-                    action_queue.put({
-                        "type": "buy_train",
-                        "tick": game._last_tick,
-                        "depot_id": game.depots[0].id,
-                    })
-                    if game.lines:
-                        action_queue.put({
-                            "type": "assign_train",
+                    action_queue.put(
+                        {
+                            "type": "buy_train",
                             "tick": game._last_tick,
-                            "train_id": "latest",
-                            "line_id": "latest",
-                        })
+                            "depot_id": game.depots[0].id,
+                        }
+                    )
+                    if game.lines:
+                        action_queue.put(
+                            {
+                                "type": "assign_train",
+                                "tick": game._last_tick,
+                                "train_id": "latest",
+                                "line_id": "latest",
+                            }
+                        )
 
         if state == "home":
             if game._local_player.screen.homescreen(screen, events) == "start":
@@ -237,7 +263,9 @@ if __name__ == "__main__":
             game._local_player.camera.move(keys)
 
             # render only — no train.tick() calls, server drives simulation
-            render_stack = game.compile_render_stack(game.action == "PlacingTrack", making_lines)
+            render_stack = game.compile_render_stack(
+                game.action == "PlacingTrack", making_lines
+            )
             game._local_player.camera.draw(screen, render_stack)
 
             toolbar_action = game._local_player.screen.top_toolbar(screen, events)
@@ -248,7 +276,9 @@ if __name__ == "__main__":
                 state = "quit"
                 clicked_last_tick = True
             elif toolbar_action == "place_track":
-                game.action = "PlacingTrack" if game.action != "PlacingTrack" else "Normal"
+                game.action = (
+                    "PlacingTrack" if game.action != "PlacingTrack" else "Normal"
+                )
                 game.last_node = None
                 clicked_last_tick = True
             elif toolbar_action == "make_line":
@@ -263,7 +293,9 @@ if __name__ == "__main__":
 
             if game.action == "PlacingTrack":
                 mouse_pos = pygame.mouse.get_pos()
-                world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
+                world_pos = game._local_player.camera.screen_to_world(
+                    mouse_pos[0], mouse_pos[1]
+                )
                 if mouse[0]:
                     if game.last_node is None and not clicked_last_tick:
                         for node in game.nodes:
@@ -274,26 +306,35 @@ if __name__ == "__main__":
                     elif game.last_node is not None and not clicked_last_tick:
                         # Check if the second click lands on an existing node
                         existing = next(
-                            (n for n in game.nodes if n.check_collision(world_pos) and n is not game.last_node),
+                            (
+                                n
+                                for n in game.nodes
+                                if n.check_collision(world_pos)
+                                and n is not game.last_node
+                            ),
                             None,
                         )
                         if existing:
                             game.place_new_edge(game.last_node, end_node=existing)
-                            action_queue.put({
-                                "type": "place_track",
-                                "tick": game._last_tick,
-                                "station_a": game.last_node.id,
-                                "station_b": existing.id,
-                            })
+                            action_queue.put(
+                                {
+                                    "type": "place_track",
+                                    "tick": game._last_tick,
+                                    "station_a": game.last_node.id,
+                                    "station_b": existing.id,
+                                }
+                            )
                         else:
                             game.place_new_edge(game.last_node, world_pos)
-                            action_queue.put({
-                                "type": "place_track",
-                                "tick": game._last_tick,
-                                "station_a": game.last_node.id,
-                                "x": world_pos[0],
-                                "y": world_pos[1],
-                            })
+                            action_queue.put(
+                                {
+                                    "type": "place_track",
+                                    "tick": game._last_tick,
+                                    "station_a": game.last_node.id,
+                                    "x": world_pos[0],
+                                    "y": world_pos[1],
+                                }
+                            )
                         game.last_node = None
                         clicked_last_tick = True
                 else:
@@ -301,21 +342,27 @@ if __name__ == "__main__":
 
             elif game.action == "MakingLine":
                 mouse_pos = pygame.mouse.get_pos()
-                world_pos = game._local_player.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
+                world_pos = game._local_player.camera.screen_to_world(
+                    mouse_pos[0], mouse_pos[1]
+                )
                 if mouse[0] and not clicked_last_tick:
                     if not made_new_line:
                         game.make_new_line([])
-                        action_queue.put({"type": "create_line", "tick": game._last_tick})
+                        action_queue.put(
+                            {"type": "create_line", "tick": game._last_tick}
+                        )
                         made_new_line = True
                     else:
                         for node in game.nodes:
                             if node.check_collision(world_pos):
                                 game.lines[-1].toggle_station(node)
-                                action_queue.put({
-                                    "type": "toggle_station",
-                                    "tick": game._last_tick,
-                                    "node_id": node.id,
-                                })
+                                action_queue.put(
+                                    {
+                                        "type": "toggle_station",
+                                        "tick": game._last_tick,
+                                        "node_id": node.id,
+                                    }
+                                )
                                 break
                     clicked_last_tick = True
                 elif not mouse[0]:

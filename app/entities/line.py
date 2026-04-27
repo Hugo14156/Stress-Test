@@ -18,7 +18,7 @@ class Line(Entity):
     moving along the line in either direction.
     """
 
-    def __init__(self, nodes=None):
+    def __init__(self, player, nodes=None):
         """Initialise the line and compute its navigation path.
 
         Args:
@@ -45,6 +45,7 @@ class Line(Entity):
         self.navigation_nodes = []
         self.edges = []
         self.color = (255, 0, 0)
+        self.player = player
         if self._main_nodes != []:
             self.calculate_navigation_path()
 

@@ -13,11 +13,13 @@ import math
 # Lightweight client-side stubs — used for rendering only, no simulation
 # ---------------------------------------------------------------------------
 
+
 class _NetworkTrain:
     """Minimal train stand-in on the client — holds position and avatar only."""
 
     def __init__(self, train_id: str):
         from app.avatars.trains.test_train import TestTrain
+
         self.id = train_id
         self.owner = None
         self._position = None
@@ -37,6 +39,7 @@ class _NetworkCar:
 
     def __init__(self, car_id: str):
         from app.avatars.train_cars.test_car import TestCar
+
         self.id = car_id
         self.owner = None
         self._position = None
@@ -55,6 +58,7 @@ class _NetworkCity:
 
     def __init__(self, city_id: str, name: str, node):
         from app.avatars.stations.city_avatar import CityAvatar
+
         self.id = city_id
         self._name = name
         self.center_node = node
@@ -66,6 +70,7 @@ class _NetworkDepot:
 
     def __init__(self, depot_id: str, node):
         from app.avatars.stations.depot_avatar import DepotAvatar
+
         self.id = depot_id
         self.center_node = node
         self.avatar = DepotAvatar(None)
@@ -74,6 +79,7 @@ class _NetworkDepot:
 # ---------------------------------------------------------------------------
 # Server -> Client: serialize game state into packet dicts
 # ---------------------------------------------------------------------------
+
 
 def serialize_map(game) -> dict:
     """Full map state — sent once on client connect and on resync."""
@@ -94,9 +100,7 @@ def serialize_tick(game, tick: int, cursors: list[dict]) -> dict:
         "tick": tick,
         "trains": [_serialize_train_position(train) for train in game.trains],
         "cars": [
-            _serialize_car_position(car)
-            for train in game.trains
-            for car in train.cars
+            _serialize_car_position(car) for train in game.trains for car in train.cars
         ],
         "cursors": cursors,
     }
@@ -109,9 +113,7 @@ def serialize_resync(game, tick: int) -> dict:
     data["tick"] = tick
     data["train_positions"] = [_serialize_train_position(t) for t in game.trains]
     data["car_positions"] = [
-        _serialize_car_position(car)
-        for train in game.trains
-        for car in train.cars
+        _serialize_car_position(car) for train in game.trains for car in train.cars
     ]
     return data
 
@@ -124,14 +126,19 @@ def serialize_reject(tick: int, action: str, reason: str) -> dict:
 # Private helpers — individual object serialization
 # ---------------------------------------------------------------------------
 
+
 def _serialize_track(edge, game) -> dict:
     edge_id = getattr(edge, "id", None) or f"trk_{game.edges.index(edge)}"
     city_a = _find_station_id(edge.start, game)
     city_b = _find_station_id(edge.end, game)
     return {
         "id": edge_id,
-        "station_a": city_a, "ax": edge.start.position[0], "ay": edge.start.position[1],
-        "station_b": city_b, "bx": edge.end.position[0],   "by": edge.end.position[1],
+        "station_a": city_a,
+        "ax": edge.start.position[0],
+        "ay": edge.start.position[1],
+        "station_b": city_b,
+        "bx": edge.end.position[0],
+        "by": edge.end.position[1],
     }
 
 
@@ -169,12 +176,22 @@ def _serialize_train_static(train) -> dict:
 
 def _serialize_train_position(train) -> dict:
     x, y = train.get_position()
-    return {"id": train.id, "x": round(x, 2), "y": round(y, 2), "angle": round(train.get_angle(), 4)}
+    return {
+        "id": train.id,
+        "x": round(x, 2),
+        "y": round(y, 2),
+        "angle": round(train.get_angle(), 4),
+    }
 
 
 def _serialize_car_position(car) -> dict:
     x, y = car.get_position()
-    return {"id": car.id, "x": round(x, 2), "y": round(y, 2), "angle": round(car.get_angle(), 4)}
+    return {
+        "id": car.id,
+        "x": round(x, 2),
+        "y": round(y, 2),
+        "angle": round(car.get_angle(), 4),
+    }
 
 
 def _find_station_id(node, game) -> str:
@@ -191,6 +208,7 @@ def _find_station_id(node, game) -> str:
 # ---------------------------------------------------------------------------
 # Client -> Server: deserialize incoming tick data and apply to local state
 # ---------------------------------------------------------------------------
+
 
 def apply_tick(data: dict, game) -> bool:
     """
@@ -279,7 +297,11 @@ def apply_map(data: dict, game):
             game.edges.append(edge)
 
     for line_data in data.get("lines", []):
-        station_nodes = [node_by_id[sid] for sid in line_data.get("stations", []) if sid in node_by_id]
+        station_nodes = [
+            node_by_id[sid]
+            for sid in line_data.get("stations", [])
+            if sid in node_by_id
+        ]
         try:
             line = Line(station_nodes)
         except Exception:
