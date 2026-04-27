@@ -19,10 +19,10 @@ class TrackAvatar(Avatar):
         self.length = length
         self.track_sprite = None
         self.full_surface = None
-        self.placing_surface = None
-        self.placing_color = (0, 255, 0)
+        self.line_surface = None
+        self.line_color = (0, 0, 0)
         self.make_full_surface()
-        self.make_placing_surface()
+        self.make_line_surface()
 
     def make_full_surface(self):
         track_sprite = pygame.image.load(str(self.image_path)).convert_alpha()
@@ -45,12 +45,12 @@ class TrackAvatar(Avatar):
             self.full_surface.blit(track_sprite, sprite_rect)
         self.track_sprite = track_sprite
 
-    def make_placing_surface(self):
-        self.placing_surface = pygame.Surface(
+    def make_line_surface(self):
+        self.line_surface = pygame.Surface(
             (self.length, self.track_sprite.get_height()), pygame.SRCALPHA
         )
-        self.placing_surface.fill(self.placing_color)
+        self.line_surface.fill(self.line_color)
 
-    def change_length_for_placing(self, new_length):
-        self.length = new_length
-        self.make_placing_surface()
+    def change_color(self, color):
+        self.line_color = color
+        self.make_line_surface()

@@ -12,8 +12,11 @@ class Player:
         self.screen = Screens(self._game.resolution[0], self._game.resolution[1])
         self.depots = []
         self.lines = []
-        self._balance = 0.0
+        self._balance = 5000
         self.color = color
+
+    def add_money(self, money):
+        self._balance += money
 
     @property
     def game(self):
