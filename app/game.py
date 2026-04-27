@@ -175,9 +175,13 @@ class Game:
                 self._local_player.camera.draw(screen, render_stack)
 
                 # Draw toolbar over game and check for user interaction
-                toolbar_action = self._local_player.screen.top_toolbar(screen, events, self.action == "MakingLine")
-                depot_button_action = self._local_player.screen.depot_press_button(screen, events, self._local_player.camera, self.depots)
-                self._local_player.screen.player_money(screen, self._local_player._balance)
+                toolbar_action = self._local_player.screen.top_toolbar(screen, events)
+                depot_button_action = self._local_player.screen.depot_press_button(
+                    screen, events, self._local_player.camera, self.depots
+                )
+                self._local_player.screen.player_money(
+                    screen, self._local_player._balance
+                )
                 # Act based on user interaction
 
                 if depot_button_action == "depot":
@@ -302,16 +306,22 @@ class Game:
                 if self._local_player.screen.depot_screen(screen, events) == "buy_EMD8":
                     self.purchase_flash_end = pygame.time.get_ticks() + 1200
                     self._local_player._balance -= 10000
+                    self.add_e8_train()
+                    self.trains[-1].assign_to_line(self.lines[-1])
                     state = "game"
                 if self._local_player.screen.depot_screen(screen, events) == "buy_EMD9":
                     self.purchase_flash_end = pygame.time.get_ticks() + 1200
                     self._local_player._balance -= 12000
+                    self.add_e9_train()
+                    self.trains[-1].assign_to_line(self.lines[-1])
                     state = "game"
-                if self._local_player.screen.depot_screen(screen, events) == "buy_ACS-64":
+                if (
+                    self._local_player.screen.depot_screen(screen, events)
+                    == "buy_ACS-64"
+                ):
                     self.purchase_flash_end = pygame.time.get_ticks() + 1200
                     self._local_player._balance -= 15000
                     state = "game"
-            
 
                 if keys[pygame.K_ESCAPE]:
                     state = "game"
@@ -345,6 +355,36 @@ class Game:
         new_train = Train(self.depots[0], [], EMD_E9(), self._local_player)
         new_train.add_cars(
             [PassengerCar(new_train, PCar1(), self.depots[0]) for i in range(5)]
+        )
+        self.trains.append(new_train)
+
+    def add_e8_train(self):
+        """
+        Spawn a test train on the given edge.
+
+        Parameters
+        ----------
+        edge : Edge
+            The edge where the train will be placed.
+        """
+        new_train = Train(self.depots[0], [], EMD_E8(), self._local_player)
+        new_train.add_cars(
+            [PassengerCar(new_train, PCar1(), self.depots[0]) for i in range(5)]
+        )
+        self.trains.append(new_train)
+
+    def add_e9_train(self):
+        """
+        Spawn a test train on the given edge.
+
+        Parameters
+        ----------
+        edge : Edge
+            The edge where the train will be placed.
+        """
+        new_train = Train(self.depots[0], [], EMD_E9(), self._local_player)
+        new_train.add_cars(
+            [PassengerCar(new_train, PCar1(), self.depots[0]) for i in range(7)]
         )
         self.trains.append(new_train)
 
@@ -447,8 +487,10 @@ class Game:
         return [
             {
                 "pos": (
-                    depot.center_node.position[0] - depot.avatar.surface.get_width() // 2,
-                    depot.center_node.position[1] - depot.avatar.surface.get_height() // 2,
+                    depot.center_node.position[0]
+                    - depot.avatar.surface.get_width() // 2,
+                    depot.center_node.position[1]
+                    - depot.avatar.surface.get_height() // 2,
                 ),
                 "surface": depot.avatar.surface,
             }
@@ -460,7 +502,8 @@ class Game:
             {
                 "pos": (
                     city.center_node.position[0] - city.avatar.surface.get_width() // 2,
-                    city.center_node.position[1] - city.avatar.surface.get_height() // 2,
+                    city.center_node.position[1]
+                    - city.avatar.surface.get_height() // 2,
                 ),
                 "surface": city.avatar.surface,
             }
