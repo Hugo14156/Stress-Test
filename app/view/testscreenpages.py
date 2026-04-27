@@ -13,7 +13,7 @@ clock = pygame.time.Clock()
 camera = Camera(1280, 720)
 screens = Screens(1280, 720)
 
-state = "home"
+state = "depot"
 
 blue = pygame.Surface((50, 50))
 blue.fill("blue")
@@ -70,6 +70,9 @@ while running:
             running = False
         elif screens.quit_screen(screen, events) == "no":
             state = "game"
+
+    elif state == "depot":
+        screens.depot_screen(screen, events)
 
     pygame.display.flip()
     clock.tick(60)

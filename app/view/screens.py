@@ -1,4 +1,5 @@
 import pygame
+from app.view.camera import Camera  
 
 
 class Screens:
@@ -79,12 +80,12 @@ class Screens:
         """
         mouse_pos = pygame.mouse.get_pos()
 
-        pause_button = pygame.Rect(self.width // 2 - 80, 20, 70, 70)
+        pause_button = pygame.Rect(self.width // 2 - 150, 20, 70, 70)
         pause_hovered = pause_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if pause_hovered else (100, 100, 100),
+            (200, 180, 120) if pause_hovered else (180, 160, 100),
             pause_button,
             border_radius=12,
         )
@@ -92,12 +93,12 @@ class Screens:
         text = self.button_font.render("||", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=pause_button.center))
 
-        quit_button = pygame.Rect(self.width // 2 + 10, 20, 70, 70)
+        quit_button = pygame.Rect(self.width // 2 - 60, 20, 70, 70)
         quit_hovered = quit_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if quit_hovered else (100, 100, 100),
+            (200, 180, 120) if quit_hovered else (180, 160, 100),
             quit_button,
             border_radius=12,
         )
@@ -105,12 +106,12 @@ class Screens:
         text = self.button_font.render("X", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=quit_button.center))
 
-        track_button = pygame.Rect(self.width // 2 + 100, 20, 70, 70)
+        track_button = pygame.Rect(self.width // 2 + 30, 20, 70, 70)
         track_hovered = track_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if track_hovered else (100, 100, 100),
+            (120, 120, 240) if track_hovered else (100, 150, 240),
             track_button,
             border_radius=12,
         )
@@ -120,12 +121,12 @@ class Screens:
         )
         screen.blit(text, text.get_rect(center=track_button.center))
 
-        line_button = pygame.Rect(self.width // 2 + 190, 20, 70, 70)
+        line_button = pygame.Rect(self.width // 2 + 120, 20, 70, 70)
         line_hovered = line_button.collidepoint(mouse_pos)
 
         pygame.draw.rect(
             screen,
-            (150, 150, 150) if line_hovered else (100, 100, 100),
+            (120, 120, 240) if line_hovered else (100, 150, 240),
             line_button,
             border_radius=12,
         )
@@ -254,4 +255,142 @@ class Screens:
                     return "yes"
                 if event.button == 1 and no_hovered:
                     return "no"
+        return None
+
+    def depot_press_button(self, screen, events, camera, depots):
+        mouse_pos = pygame.mouse.get_pos()
+        world_mouse = camera.screen_to_world(*mouse_pos)
+
+        for depot in depots:
+            node = depot.center_node
+            if node.check_collision(world_mouse):
+                sx, sy = camera.world_to_screen(*node.position)
+                press_rect = pygame.Rect(sx - 130, sy - 30, 260, 60)
+                pygame.draw.rect(screen, (100, 200, 250), press_rect, border_radius=12)
+                text = self.button_font.render("Enter Depot", True, (255, 255, 255))
+                screen.blit(text, text.get_rect(center=press_rect.center))
+
+                for event in events:
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == 1:
+                            return "depot"
+        return None
+    
+    def depot_screen(self, screen, events):
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((220, 200, 160, 120))
+        screen.blit(overlay, (0, 0))
+
+        popup = pygame.Rect(
+            200,
+            200,
+            self.width - 400,
+            self.height - 400
+        )
+
+        pygame.draw.rect(screen, (235, 235, 235), popup, border_radius=18)
+        pygame.draw.rect(screen, (40, 40, 40), popup, 4, border_radius=18)
+
+        title = self.title_font.render("Depot Menu", True, (20, 20, 20))
+        screen.blit(title, title.get_rect(center=(popup.centerx, popup.y + 80)))
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        button_width = 240
+        button_height = 120
+        gap = 40
+
+        total_width = button_width * 3 + gap * 2
+        start_x = popup.centerx - total_width // 2 - 50
+        y_pos = popup.y + 170
+
+        EMD8_button = pygame.Rect(
+            start_x,
+            y_pos,
+            button_width,
+            button_height
+        )
+
+        EMD8_hovered = EMD8_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (50, 200, 60) if EMD8_hovered else (80, 220, 70),
+            EMD8_button,
+            border_radius=12
+        )
+
+        text = self.button_font.render("Buy EMD E8", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=EMD8_button.center))
+
+        EMD9_button = pygame.Rect(
+            start_x + button_width + gap,
+            y_pos,
+            button_width,
+            button_height
+        )
+
+        EMD9_hovered = EMD9_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (50, 200, 60) if EMD9_hovered else (80, 220, 70),
+            EMD9_button,
+            border_radius=12
+        )
+
+        text = self.button_font.render("Buy EMD E9", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=EMD9_button.center))
+
+        siemens_button = pygame.Rect(
+            start_x + (button_width + gap) * 2,
+            y_pos,
+            button_width + 150,
+            button_height
+        )
+
+        siemens_hovered = siemens_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (50, 200, 60) if siemens_hovered else (80, 220, 70),
+            siemens_button,
+            border_radius=12
+        )
+
+        text = self.button_font.render("Buy Siemens ACS-64", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=siemens_button.center))
+
+        return_button = pygame.Rect(
+            start_x + (button_width + gap) * 2,
+            y_pos + 180,
+            button_width + 150,
+            button_height
+        )
+
+        return_hovered = return_button.collidepoint(mouse_pos)
+
+        pygame.draw.rect(
+            screen,
+            (50, 80, 220) if return_hovered else (80, 110, 250),
+            return_button,
+            border_radius=12
+        )
+
+        text = self.button_font.render("Return to Game", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=return_button.center))
+
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if EMD8_hovered:
+                    return "buy_EMD8"
+
+                if EMD9_hovered:
+                    return "buy_EMD9"
+
+                if siemens_hovered:
+                    return "buy_ACS-64"
+                
+                if return_hovered:
+                    return "return"
         return None
