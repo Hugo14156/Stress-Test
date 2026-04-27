@@ -169,8 +169,10 @@ class Game:
 
                 # Draw toolbar over game and check for user interaction
                 toolbar_action = self._local_player.screen.top_toolbar(screen, events)
-                depot_button_action = self._local_player.screen.depot_press_button(screen, events, self._local_player.camera, self.depots)
-                
+                depot_button_action = self._local_player.screen.depot_press_button(
+                    screen, events, self._local_player.camera, self.depots
+                )
+
                 # Act based on user interaction
 
                 if depot_button_action == "depot":
@@ -272,7 +274,6 @@ class Game:
                 elif keys[pygame.K_t]:
                     self.add_test_train()
                     self.trains[-1].assign_to_line(self.lines[-1])
-                    
 
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
@@ -373,7 +374,7 @@ class Game:
     def place_new_depot(self, player, position):
         new_depot_center_node = self.place_new_node(position)
         _, new_depot_entry_node = self.place_new_edge(
-            new_depot_center_node, [position[0], position[1] - 100]
+            new_depot_center_node, [position[0], position[1] - 250]
         )
         new_depot = TrainDepot(player, [new_depot_center_node, new_depot_entry_node])
         self.depots.append(new_depot)
@@ -381,7 +382,7 @@ class Game:
     def place_new_city(self, position):
         new_city_center_node = self.place_new_node(position)
         _, new_city_entry_node = self.place_new_edge(
-            new_city_center_node, [position[0], position[1] - 100]
+            new_city_center_node, [position[0], position[1] - 250]
         )
         new_city = City([new_city_center_node, new_city_entry_node])
         self.cities.append(new_city)
