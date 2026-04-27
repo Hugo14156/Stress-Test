@@ -47,7 +47,7 @@ class Stock:
         prices = [player_worth / self.num_stocks for player_worth in self.net_worth]
         return prices
     
-    def _execute_transaction(self, buyer, seller, target, amount):
+    def _execute_transaction(self, buyer, seller, target, amount, price):
         """
         Private helper function to execute a stock purchase of `target`'s stock between `buyer` and `seller`
 
@@ -61,7 +61,7 @@ class Stock:
             amount: an integer representing the number of stocks being bought
         """
 
-        _cost = self.set_prices()[target] * amount
+        _cost = price * amount
         self.ownership[buyer][target] += amount
         self.ownership[seller][target] -= amount
         self.cash[buyer] -= _cost
@@ -82,18 +82,22 @@ class Stock:
         
         Returns: nothing
         """
-
-        price = self.set_prices()[target]
+        prices = self.set_prices()
+        price = prices[target]
         total_cost = price * quantity
         if self.cash[buyer] < total_cost:
             raise ValueError("Buyer doesn't have enough cash to complete the purchase")
+        
         available_sellers = [player[target] for player in self.ownership]
         available_sellers[buyer] = 0 # buyer can't purchase from themselves
         if sum(available_sellers) < quantity:
             raise ValueError("There aren't enough stocks available for purchase")
+        
         while quantity > 0:
+            available_sellers = [player[target] for player in self.ownership]
+            available_sellers[buyer] = 0
             amount, seller = min((val, idx) for idx, val in enumerate(available_sellers) if val != 0)
-            self._execute_transaction(buyer, seller, target, min(quantity, amount))
+            self._execute_transaction(buyer, seller, target, min(quantity, amount), price)
             quantity = quantity - amount
     
     def check_majority_ownership(self, player):
