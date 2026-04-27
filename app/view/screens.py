@@ -374,10 +374,7 @@ class Screens:
         screen.blit(text, text.get_rect(center=siemens_button.center))
 
         return_button = pygame.Rect(
-            start_x + (button_width + gap) * 2,
-            y_pos + 180,
-            button_width + 150,
-            button_height,
+            start_x, y_pos + 180, (button_width + gap) * 3 + 110, button_height
         )
 
         return_hovered = return_button.collidepoint(mouse_pos)
@@ -391,22 +388,6 @@ class Screens:
 
         text = self.button_font.render("Return to Game", True, (255, 255, 255))
         screen.blit(text, text.get_rect(center=return_button.center))
-
-        train_list_button = pygame.Rect(
-            start_x, y_pos + 180, button_width + 280, button_height
-        )
-
-        train_list_hovered = train_list_button.collidepoint(mouse_pos)
-
-        pygame.draw.rect(
-            screen,
-            (50, 80, 220) if train_list_hovered else (80, 110, 250),
-            train_list_button,
-            border_radius=12,
-        )
-
-        text = self.button_font.render("View Depot Train List", True, (255, 255, 255))
-        screen.blit(text, text.get_rect(center=train_list_button.center))
 
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -422,8 +403,6 @@ class Screens:
                 if return_hovered:
                     return "return"
 
-                if train_list_hovered:
-                    return "train_list"
         return None
 
     def purchase_complete(self, screen):
