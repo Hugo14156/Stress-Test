@@ -119,7 +119,13 @@ class Game:
         running = True
         self.place_new_depot(self._local_player, (100, 100))
         self.place_new_city((500, 50))
-        self.place_new_city((800, 150))
+        self.place_new_city((1800, 1150))
+        self.place_new_city((2400, 120))
+        self.place_new_city((-3200, -1320))
+        self.place_new_city((4000, 2450))
+        self.place_new_city((300, -3200))
+        self.place_new_city((-5000, 1543))
+        self.place_new_city((100, 4500))
         self.place_new_city((1200, 120))
         clicked_last_tick = False
         made_new_line = False
@@ -272,7 +278,6 @@ class Game:
                 elif keys[pygame.K_t]:
                     self.add_test_train()
                     self.trains[-1].assign_to_line(self.lines[-1])
-                    
 
             elif state == "pause":
                 self._local_player.screen.pause_screen(screen, events)
@@ -373,7 +378,7 @@ class Game:
     def place_new_depot(self, player, position):
         new_depot_center_node = self.place_new_node(position)
         _, new_depot_entry_node = self.place_new_edge(
-            new_depot_center_node, [position[0], position[1] - 100]
+            new_depot_center_node, [position[0], position[1] - 250]
         )
         new_depot = TrainDepot(player, [new_depot_center_node, new_depot_entry_node])
         self.depots.append(new_depot)
@@ -381,7 +386,7 @@ class Game:
     def place_new_city(self, position):
         new_city_center_node = self.place_new_node(position)
         _, new_city_entry_node = self.place_new_edge(
-            new_city_center_node, [position[0], position[1] - 100]
+            new_city_center_node, [position[0], position[1] - 250]
         )
         new_city = City([new_city_center_node, new_city_entry_node])
         self.cities.append(new_city)

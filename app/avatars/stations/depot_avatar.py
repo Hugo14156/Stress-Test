@@ -1,16 +1,36 @@
 from app.avatars.station_avatar import StationAvatar
 import pygame
 import math
+from pathlib import Path
 
 
 class DepotAvatar(StationAvatar):
     def __init__(self, player):
         super().__init__()
-        self.scale = 50
+        self.scale = 60
         self.player = player
-        self.points = self.hexagon_points((self.scale, self.scale), self.scale)
-        self.surface = pygame.Surface((self.scale * 2, self.scale * 2), pygame.SRCALPHA)
-        pygame.draw.polygon(self.surface, player.color, self.points)
+        image_path = (
+            Path(__file__).resolve().parents[3]
+            / "assets"
+            / "sprites"
+            / "depots"
+            / "depot.png"
+        )
+        scale = 60
+        image = pygame.image.load(str(image_path)).convert_alpha()
+        scaled_size = (image.get_width() // scale, image.get_height() // scale)
+        image = pygame.transform.smoothscale(image, scaled_size)
+        self.surface = pygame.Surface(
+            (image.get_width(), image.get_height()), pygame.SRCALPHA
+        )
+        image_rect = image.get_rect(
+            center=(image.get_width() // 2, image.get_height() // 2)
+        )
+        self.surface.blit(image, image_rect)
+        self.image = image
+        # self.points = self.hexagon_points((self.scale, self.scale), self.scale)
+        # self.surface = pygame.Surface((self.scale * 2, self.scale * 2), pygame.SRCALPHA)
+        # pygame.draw.polygon(self.surface, player.color, self.points)
 
     def hexagon_points(self, center, size):
         """
