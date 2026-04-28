@@ -112,8 +112,8 @@ The game opens a Pygame window and starts at the home screen.
 - Top toolbar buttons:
   - Pause (`||`)
   - Quit (`X`)
-  - Place Track
-  - Make Line
+  - Place Track - Click on a white circle to start the track. Click again to place. 
+  - Make Line - Click on all cities (grey squares) you want to be a part of the line. Red lines show the calculated path.
 
 ## Experimental Multiplayer
 
