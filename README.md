@@ -11,17 +11,17 @@ Stress Test is a 2D train logistics game built with Python and Pygame. The curre
 
 ## Overview
 
-The game is organized around a node-and-edge world graph. Players place depots and cities, build track between nodes, assign trains to lines, and watch trains move across the network while passengers and cargo are handled by the entity layer.
+The game is organized around a node-and-edge world graph. Players track, make lines, assign trains to lines, and watch trains move across the network while passengers and cargo are handled by the entity layer.
 
 Current gameplay features include:
 
 - Home, pause, quit, and depot screens.
 - Camera movement and zoom.
 - Track placement on a graph of nodes and edges.
-- Depot and city placement.
+- Line creation and train assignment
+- Passenger spawning, boarding, and paying.
 - Train, car, and station entity modeling.
 - Render stack composition for world objects.
-- Script-based smoke tests and small visual validation helpers.
 
 ## Current State
 
@@ -65,7 +65,7 @@ Some parts are still intentionally unfinished:
 ### 1. Clone and enter the project
 
 ```powershell
-git clone <your-repo-url>
+git clone https://github.com/Hugo14156/Stress-Test.git
 cd Stress-Test
 ```
 
@@ -117,7 +117,40 @@ The game opens a Pygame window and starts at the home screen.
 
 ## Experimental Multiplayer
 
-The separate networking branch contains an experimental multiplayer mode. It is not part of this repository's default single-player loop, but it exists as a prototype for client/server-style play and networked position updates.
+The separate networking branch contains an experimental multiplayer mode. It is not part of this repository's default single-player loop, but it exists as a prototype for client/server-style play and networked position updates. To use it,
+follow the instructions below. 
+
+### Switching to networking branch
+
+```powershell
+git switch networking
+```
+
+### Pulling latest version
+
+```powershell
+git pull
+```
+From there, a server should run `server.py`.
+
+### Starting server
+
+```powershell
+python -m app.networking.server
+```
+
+Then, all clients should run `client.py`
+
+### Starting client
+
+```powershell
+python -m app.networking.client
+```
+On startup, clients will attempt to automatically connect to a server. If this process fails, you will be prompted to
+enter an address. The address will be found printed in the terminal running the server. 
+
+If you would like to be both the server and the client, run the server in one terminal, then make a new terminal and run
+client in there.
 
 ## Testing
 
